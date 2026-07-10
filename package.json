@@ -1,0 +1,15 @@
+{
+  "name": "chinvat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local MCP labor hub — the bridge between your agents and your world.",
+  "workspaces": ["hub", "dashboard"],
+  "scripts": {
+    "build": "npm run build -w hub && npm run build -w dashboard",
+    "dev": "npm run dev -w hub",
+    "start": "node hub/dist/index.js",
+    "smoke": "node hub/dist/smoke.js"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
