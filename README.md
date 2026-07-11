@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="docs/fa/README.md"><b>فارسی</b></a> &nbsp;·&nbsp; <b>English</b>
+</p>
+
+<p align="center"><sub>راهنمای کامل به زبان فارسی: <a href="docs/fa/README.md">از این‌جا شروع کنید ←</a></sub></p>
+
 # Chinvat
 
 **The bridge between your agents and your world.**
@@ -5,7 +11,7 @@
 Chinvat is a local **MCP labor hub** for Windows. It gives any MCP-capable coordinator (Claude Code / Claude Desktop, Codex, Cursor, Hermes, …) a single server through which it can delegate work to local models, remote specialist models, Windows itself, and your communication and publishing channels — with a persistent job queue, artifacts, and a policy layer that decides what crosses the bridge.
 
 ```
-Coordinator agent ──MCP──▶ Chinvat Hub ──▶ Ollama · OpenRouter · OpenAI-compatible
+Coordinator agent ──MCP──▶ Chinvat Hub ──▶ ollama · openrouter · openai-compatible
         (Claude, Codex…)      │             Windows/System · Telegram · WordPress
                               │             WhatsApp · Facebook · Instagram · LinkedIn · X
                               ├─ SQLite job engine (parent/child, artifacts, recovery)
@@ -62,7 +68,7 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 |---|---|---|
 | `ollama` | full | local Ollama at `127.0.0.1:11434` |
 | `openrouter` | full | API key |
-| `openai-compatible` | full | baseUrl + the provider’s own API key |
+| `openai-compatible` | full | `Base URL` + the provider’s own `API key` |
 | `telegram` | full (incl. approval buttons) | bot token |
 | `wordpress` | full | site URL + application password |
 | `system` (Windows/shell/files) | full | policy tier ≥ approve for writes |
@@ -72,19 +78,23 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `linkedin` | token-config | OAuth token (`w_member_social`) |
 | `x` (Twitter) | token-config | OAuth 2.0 user token (`tweet.write`) |
 
-`openai-compatible` is one reusable worker for NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure, and any other OpenAI-compatible endpoint — point it at a `baseUrl` with the provider’s key. New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
+`openai-compatible` is one reusable worker for NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure, and any other OpenAI-compatible endpoint — point it at a `Base URL` with the provider’s `API key`. Provider-named instances are roadmap work, not shipped modules. New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
 
 ## Policy: what crosses the bridge
 
 Every operation declares a risk (`read` / `act` / `dangerous`); every module has a tier:
 
-- **observe** — only `read` operations run
-- **approve** — `act`/`dangerous` operations pause as `waiting_approval`; release with one click in the dashboard or from Telegram
+- **observe** — `read` operations run; `act`/`dangerous` operations are rejected
+- **approve** — `read` operations run; `act`/`dangerous` operations pause as `waiting_approval`; release with one click in the dashboard or from Telegram
 - **autonomous** — everything runs (dangerous ops still logged)
+
+Model inference is `read`, so it runs at every tier without approval.
 
 ## Docs
 
-[Development plan](docs/DEVELOPMENT-PLAN.md) · [Architecture](docs/ARCHITECTURE.md) · [Modules guide](docs/MODULES.md) · [Roadmap](docs/ROADMAP.md) · [Agent handover](AGENTS.md)
+[Getting started](docs/GETTING-STARTED.md) · [Using models](docs/MODELS.md) · [Configuration](docs/CONFIGURATION.md) · [Modules guide](docs/MODULES.md) · [راهنمای فارسی](docs/fa/README.md)
+
+[Development plan](docs/DEVELOPMENT-PLAN.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Agent handover](AGENTS.md)
 
 ## License
 

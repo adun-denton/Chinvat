@@ -5,5 +5,6 @@ modules/*
 !modules/README.md
 .env
 *.log
+*.tsbuildinfo
 # lockfiles omitted while repo is synced via API; deps are semver-pinned
 package-lock.json

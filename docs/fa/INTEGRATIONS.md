@@ -1,0 +1,37 @@
+<p align="center">
+  <b>فارسی</b> &nbsp;·&nbsp; <a href="../MODULES.md">English</a>
+</p>
+
+<p align="center"><a href="README.md">فهرست راهنمای فارسی</a></p>
+
+# پیکربندی سرویس‌ها
+
+در **Modules** فیلدها را وارد، ماژول را Enable و Save کنید، **Test connection** را اجرا کنید و سپس یک Operation واقعی کم‌خطر را آزمایش کنید. Health سالم فقط Identity و Connectivity را ثابت می‌کند، نه همهٔ Permissionها، Productها، Creditها یا Access tierها.
+
+## Telegram
+
+با `@BotFather` Bot بسازید و `botToken` را وارد کنید. به Bot پیام دهید، `get_updates` را اجرا و `chat_id` را در `chatId` ذخیره کنید. دریافت پیام‌های عادی Group نیازمند غیرفعال‌کردن Privacy Mode است.
+
+## WhatsApp
+
+Meta app token و Phone number ID لازم است. خارج از پنجرهٔ 24h باید Template تأییدشده با `send_template` استفاده شود و Recipient باید Opt-in کرده باشد. `401` معمولاً Token، `403` Permission یا Live نبودن App و `400`/`404` Phone number ID را نشان می‌دهد.
+
+## Facebook
+
+`Page ID` و Page access token بلندمدت با `pages_manage_posts` لازم است. انتشار Production روی Pageهای دیگر معمولاً به Meta App Review نیاز دارد. `401` Token، `403` Scope/App Review/Page role و `400` Page ID را بررسی می‌کند.
+
+## Instagram
+
+Account باید Business یا Creator و به Facebook Page متصل باشد. IG Business/Creator account ID و Token لازم است. `publish_photo` به URL عمومی و قابل‌دسترسی تصویر نیاز دارد. `401` Token، `403` Scope و `400` Account type یا Image URL را بررسی می‌کند.
+
+## LinkedIn
+
+محصول **Share on LinkedIn** و OAuth token با `w_member_social` لازم است. `authorUrn` را از Operation `me` بگیرید؛ Profile URL جایگزین آن نیست. `401` Token، `403` Product/Scope و `422` Author URN را بررسی می‌کند.
+
+## X
+
+OAuth 2.0 user token با `tweet.read`، `tweet.write` و `users.read` لازم است. Free tier محدود و Write-limited است؛ `search_recent` حداقل Basic پولی می‌خواهد. `401`/`403` Credential یا Scope و `403`/`429` Access tier یا Rate limit را بررسی می‌کند. سلامت اتصال به معنی داشتن Credit انتشار نیست.
+
+## NVIDIA با `openai-compatible`
+
+`Base URL` را `https://integrate.api.nvidia.com/v1`، `API key` را کلید `nvapi-` از build.nvidia.com و `Default model` را ID دقیق حاصل از `list_models` قرار دهید. کلید مستقیماً به NVIDIA می‌رود و نباید در OpenRouter قرار گیرد. `401` Key، `404` Model ID و `429` Rate limit یا Tier را بررسی می‌کند.
