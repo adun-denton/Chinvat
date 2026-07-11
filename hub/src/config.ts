@@ -28,6 +28,7 @@ const DEFAULT_TIERS: Record<string, Tier> = {
   instagram: 'approve',
   linkedin: 'approve',
   x: 'approve',
+  'openai-compatible': 'autonomous',
 };
 
 const DEFAULT_ENABLED = new Set(['ollama', 'openrouter', 'system', 'telegram', 'wordpress']);
