@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   if (!noHttp) {
     const cfg = hub.config.get();
     const port = Number(flagValue('--port') ?? cfg.port);
-    const { server } = buildHttp(hub);
+    const { server } = buildHttp(hub, port);
     server.listen(port, cfg.bind, () => {
       process.stderr.write(
         `[chinvat] hub on http://${cfg.bind}:${port}  ·  dashboard + /api + /ws + /mcp\n`
