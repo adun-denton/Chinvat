@@ -111,6 +111,11 @@ export function buildHttp(hub: Hub, port: number): { app: Express; server: Serve
     res.json({ ok: true });
   });
 
+  api.post('/modules/:name/test', async (req, res) => {
+    if (!hub.registry.get(req.params.name)) return res.status(404).json({ error: 'unknown module' });
+    res.json(await hub.registry.health(req.params.name, true));
+  });
+
   api.get('/jobs', (req, res) => {
     res.json(
       hub.jobs.list({
