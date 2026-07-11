@@ -29,6 +29,9 @@ Needs the IG **business account ID** and an access token with Instagram permissi
 ## linkedin — member posts
 A 3-legged OAuth **access token** with the `w_member_social` scope (Share on LinkedIn product). Find your **author URN** by running the `me` operation — it returns `urn:li:person:<sub>`. Operation: `create_post`.
 
+## x — X (Twitter)
+A 3-legged OAuth 2.0 **user access token** from an app at [developer.x.com](https://developer.x.com) with scopes `tweet.read`, `tweet.write`, `users.read`. Operations: `post_tweet` and `delete_tweet` (delete is `dangerous`), `me`, `search_recent`. Note: posting and search require a **write/read-enabled API access tier** — the free tier is limited, and `search_recent` needs at least Basic.
+
 ---
 
 ### Adding your own module

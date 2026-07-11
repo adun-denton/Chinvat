@@ -7,7 +7,7 @@ Chinvat is a local **MCP labor hub** for Windows. It gives any MCP-capable coord
 ```
 Coordinator agent ──MCP──▶ Chinvat Hub ──▶ Ollama · OpenRouter · Windows/System
         (Claude, Codex…)      │             Telegram · WordPress · WhatsApp
-                              │             Facebook · Instagram · LinkedIn
+                              │             Facebook · Instagram · LinkedIn · X
                               ├─ SQLite job engine (parent/child, artifacts, recovery)
                               ├─ Policy tiers (observe / approve / autonomous)
                               └─ Web dashboard @ http://localhost:7777
@@ -69,6 +69,7 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `facebook` (Pages) | token-config | page access token |
 | `instagram` (Graph) | token-config | IG user ID + token |
 | `linkedin` | token-config | OAuth token (`w_member_social`) |
+| `x` (Twitter) | token-config | OAuth 2.0 user token (`tweet.write`) |
 
 New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
 
