@@ -2,7 +2,7 @@
 
 **The bridge between your agents and your world.**
 
-Chinvat is a local **MCP labor hub** for Windows. It gives any MCP-capable coordinator (Claude Code / Claude Desktop, Codex, Cursor, …) a single server through which it can delegate work to local models, remote specialist models, Windows itself, and your communication and publishing channels — with a persistent job queue, artifacts, and a policy layer that decides what crosses the bridge.
+Chinvat is a local **MCP labor hub** for Windows. It gives any MCP-capable coordinator (Claude Code / Claude Desktop, Codex, Cursor, Hermes, …) a single server through which it can delegate work to local models, remote specialist models, Windows itself, and your communication and publishing channels — with a persistent job queue, artifacts, and a policy layer that decides what crosses the bridge.
 
 ```
 Coordinator agent ──MCP──▶ Chinvat Hub ──▶ Ollama · OpenRouter · Windows/System
@@ -31,17 +31,20 @@ npm start            # hub + dashboard on http://localhost:7777
 
 Or let a desktop agent do it — see [AGENTS.md](AGENTS.md).
 
-## Hook up a coordinator
+## Connect a coordinator
 
-**Claude Code / Desktop** (`.mcp.json` or Settings → Developer):
+Start the hub, open the **Connect** tab, pick your client, and either copy the configuration or let Chinvat install it for you. Auto-install previews the exact change, backs up any existing file, writes only the `chinvat` entry (never touching your other servers), then re-tests the endpoint and reports success. Streamable HTTP is the default transport; stdio is the fallback.
 
-```json
-{ "mcpServers": { "chinvat": { "command": "node", "args": ["<repo>/hub/dist/index.js", "--stdio"] } } }
-```
+| Client | HTTP | stdio | Scope | Auto-install | After connecting |
+|---|---|---|---|---|---|
+| Codex | ✓ default | ✓ | project + global | ✓ global | restart Codex |
+| Claude Desktop | via `mcp-remote` | ✓ default | global | ✓ global | full restart |
+| Claude Code | ✓ default | ✓ | project + global | ✓ + one-command | `/mcp` |
+| Hermes | ✓ default | ✓ | global | ✓ global | `/reload-mcp` (no restart) |
+| Cursor | ✓ default | ✓ | project + global | ✓ global | auto / toggle |
+| Generic MCP client | ✓ default | ✓ | — | copy-only | reload |
 
-**Any Streamable-HTTP client:** point it at `http://127.0.0.1:7777/mcp`.
-
-Ready-made snippets, a Claude skill, and a Codex plugin manifest live in [`clients/`](clients/).
+The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Codex plugin live in [`clients/`](clients/); Claude Desktop has no native HTTP transport, so Chinvat uses stdio there by default.
 
 ## MCP surface
 

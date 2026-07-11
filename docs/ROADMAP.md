@@ -2,6 +2,7 @@
 
 ## v0.2 — routing & reach
 - `module:"auto"`: route by task type, cost, latency, context window, availability, historical success (metrics already captured per job in v0.1).
+- **X (Twitter) module**: post tweets, read mentions/timeline, reply (API v2, OAuth 2.0 user context). Publishing tiers gated `act`/`dangerous` like the other channels.
 - Blender module (Python RPC), browser-automation module.
 - Objectives: persistent parent goals that survive restarts and accumulate child results.
 - Scheduled + event triggers (cron-like, webhook-in).
@@ -22,4 +23,5 @@
 
 ## Standing chores
 - Track MCP spec releases (2026-07-28 RC → final) and SDK upgrades.
+- Keep the Connect matrix current as clients change their config schemas.
 - Add modules by demand; keep each a single reviewable file where possible.

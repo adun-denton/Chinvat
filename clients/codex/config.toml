@@ -1,0 +1,17 @@
+# Chinvat — Codex MCP server (Streamable HTTP).
+# Project scope:  save as .codex/config.toml in a trusted project.
+# Global scope:   merge this block into ~/.codex/config.toml.
+#
+# The dashboard's Connect tab can write this for you (with a backup).
+
+[mcp_servers.chinvat]
+url = "http://127.0.0.1:7777/mcp"
+
+# stdio fallback (replace <REPO> with your clone path), use instead of url:
+# [mcp_servers.chinvat]
+# command = "node"
+# args = ["<REPO>/hub/dist/index.js", "--stdio"]
+#
+# If an older Codex build ignores the url server, enable the remote client:
+# [features]
+# experimental_use_rmcp_client = true

@@ -1,25 +1,55 @@
 # Connecting coordinators to Chinvat
 
-The hub speaks MCP two ways at once, both backed by the same jobs, policy, and approvals:
+The easiest path is the dashboard: start the hub (`npm start`), open **Connect** at `http://localhost:7777`, pick your client, and copy the config or use **Install automatically**. Auto-install previews the exact merged file, backs up anything it finds, writes only the `chinvat` entry, and re-tests the endpoint. This folder holds the manual equivalents.
 
-- **stdio** — the client spawns `node hub/dist/index.js --stdio`
-- **Streamable HTTP** — the client connects to `http://127.0.0.1:7777/mcp` (start the hub first with `npm start`)
+The hub speaks MCP two ways at once, backed by the same jobs, policy, and approvals:
 
-Build the hub before connecting: `npm install && npm run build`.
+- **Streamable HTTP** (default) — `http://127.0.0.1:7777/mcp`
+- **stdio** (fallback) — the client spawns `node <REPO>/hub/dist/index.js --stdio`
 
-## Claude Code / Claude Desktop
+Build the hub first: `npm install && npm run build`.
 
-Copy [`claude/.mcp.json`](claude/.mcp.json) into your project (Claude Code reads `.mcp.json`) or merge it into your Claude Desktop developer config, replacing `<REPO>` with the absolute path to your clone. Then drop the skill at [`claude/skills/chinvat`](claude/skills/chinvat) into your skills directory so Claude knows how to delegate.
+## Per-client config (each format is different — don't assume `.mcp.json`)
 
-## Codex
+**Codex** — TOML at `.codex/config.toml` (project) or `~/.codex/config.toml` (global):
+```toml
+[mcp_servers.chinvat]
+url = "http://127.0.0.1:7777/mcp"
+```
+See [`codex/config.toml`](codex/config.toml). Restart Codex after.
 
-1. Copy the `codex/` folder to `C:\Users\<you>\plugins\local-labor-hub`.
-2. Edit both JSON files, replacing `<REPO>` with your clone path.
-3. Register and install per your Codex plugin workflow (see the manifest in `codex/.codex-plugin/plugin.json`).
+**Claude Code** — JSON at `.mcp.json` (project) or `~/.claude.json` (user); or one command:
+```
+claude mcp add --transport http chinvat http://127.0.0.1:7777/mcp
+```
+```json
+{ "mcpServers": { "chinvat": { "type": "http", "url": "http://127.0.0.1:7777/mcp" } } }
+```
+Run `/mcp` to connect.
 
-## Any other MCP client (Cursor, custom)
+**Cursor** — JSON at `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
+```json
+{ "mcpServers": { "chinvat": { "url": "http://127.0.0.1:7777/mcp" } } }
+```
 
-Point it at the Streamable HTTP endpoint `http://127.0.0.1:7777/mcp` while the hub is running, or spawn the stdio command above. No per-client code — the tools are identical on every transport.
+**Hermes** — YAML at `~/.hermes/config.yaml`; then `/reload-mcp` (no restart):
+```yaml
+mcp_servers:
+  chinvat:
+    url: http://127.0.0.1:7777/mcp
+```
+
+**Claude Desktop** — JSON at `%APPDATA%\Claude\claude_desktop_config.json`. No native HTTP, so use stdio (replace `<REPO>`), then fully restart the app:
+```json
+{ "mcpServers": { "chinvat": { "command": "node", "args": ["<REPO>/hub/dist/index.js", "--stdio"] } } }
+```
+HTTP alternative: `{ "command": "npx", "args": ["-y", "mcp-remote", "http://127.0.0.1:7777/mcp"] }`.
+
+**Any other MCP client** — point it at `http://127.0.0.1:7777/mcp` (Streamable HTTP), or spawn the stdio command above.
+
+## Codex plugin (optional)
+
+The simplest Codex setup is just the `config.toml` above — no plugin needed. If you do want the packaged plugin (which also ships the delegation skill), copy the whole `codex/` folder to `C:\Users\<you>\plugins\local-labor-hub` and edit paths; the skill is bundled inside so the folder is self-contained.
 
 ## The seven tools
 
