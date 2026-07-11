@@ -6,8 +6,8 @@ Chinvat is designed to be **deployed and controlled by desktop agents** (Claude 
 
 ```powershell
 git clone https://github.com/adun-denton/Chinvat.git; cd Chinvat
-npm install          # workspaces: hub, dashboard
-npm run build        # tsc (hub) + vite build (dashboard)
+npm install          # workspaces: hub, dashboard (hub deps incl. smol-toml, yaml)
+npm run build        # tsc (hub) + tsc --noEmit && vite build (dashboard)
 npm start            # boots hub: dashboard+API+MCP-HTTP on 127.0.0.1:7777
 ```
 
@@ -21,9 +21,10 @@ Two equivalent control planes:
 1. **MCP** — stdio: `node hub/dist/index.js --stdio` · HTTP: `POST http://127.0.0.1:7777/mcp`
    Tools: `workers_list`, `capabilities_describe`, `tasks_submit`, `tasks_status`, `tasks_result`, `tasks_cancel`, `adapter_invoke`.
 2. **REST** (what the dashboard uses) — base `http://127.0.0.1:7777/api`:
-   `GET /status`, `GET /modules`, `PUT /modules/:name/config`, `PUT /modules/:name/tier`,
+   `GET /status`, `GET /modules`, `PUT /modules/:name/config`, `PUT /modules/:name/tier`, `PUT /modules/:name/enabled`,
    `GET /jobs?status=…`, `GET /jobs/:id`, `POST /jobs`, `POST /jobs/:id/cancel`,
-   `GET /approvals`, `POST /approvals/:id/approve|deny`, WS events at `/ws`.
+   `GET /approvals`, `POST /approvals/:id/approve|deny`,
+   `GET /connect/clients`, `POST /connect/test`, `POST /connect/preview`, `POST /connect/apply`, WS events at `/ws`.
 
 Typical delegation: `tasks_submit {module:"ollama", operation:"chat", args:{model:"qwen3", messages:[…]}, mode:"sync"}`.
 
@@ -36,10 +37,11 @@ Typical delegation: `tasks_submit {module:"ollama", operation:"chat", args:{mode
 ## Repo map
 
 ```
-hub/src/            core: index, config, db, jobs, policy, registry, mcp, api, events, artifacts
-hub/src/adapters/   built-in modules (one file each)
-dashboard/src/      React UI (vite)
-clients/            .mcp.json snippets, Claude skill, Codex plugin
+hub/src/            core: index, config, db, jobs, policy, registry, mcp, api, connect, events, artifacts
+hub/src/adapters/   built-in modules (one file each): ollama openrouter system telegram wordpress
+                    whatsapp facebook instagram linkedin x
+dashboard/src/      React UI (vite); views/ incl. Connect
+clients/            per-client config snippets + bundled Codex plugin
 docs/               plan, architecture, modules, roadmap
 scripts/            install.ps1, start.cmd
 modules/            external drop-in adapters (git-ignored contents)
@@ -49,11 +51,13 @@ modules/            external drop-in adapters (git-ignored contents)
 
 - TypeScript strict; small files; no framework beyond Express + ws in the hub.
 - Every adapter implements the contract in `hub/src/types.ts` and declares risk per operation — the policy engine depends on it.
-- Verify before committing: `npm run build && npm run smoke` (boots hub on a temp port, exercises MCP over stdio, submits a job through policy).
+- Verify before committing: `npm run build && npm run smoke` (boots hub on a temp dir, exercises MCP over stdio, submits a job through policy). The smoke test asserts the built-in module count — bump it when you add a module.
 - Commit style: imperative subject, body lists user-visible changes.
 
 ## Guardrails
 
 - Do not weaken policy defaults (new modules default to `approve`).
 - Do not bind to `0.0.0.0` — remote exposure is a roadmap item with its own auth design (docs/ROADMAP.md).
+- `/connect/apply` may only write the user's coordinator config files, merge-only, always with a backup — never overwrite wholesale.
 - Do not push `data/`, `dist/`, `node_modules/`, or lockfiles (repo is synced via API; deps are semver-pinned).
+```

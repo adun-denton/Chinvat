@@ -16,10 +16,13 @@ policy.ts     decide(op.risk, module.tier) → run | approval | reject
 jobs.ts       queue, dispatch (per-module concurrency), lifecycle, recovery
 events.ts     tiny typed pub/sub → WS broadcast + adapter hooks
 artifacts.ts  save/list/read under data/artifacts/<jobId>/
+connect.ts    per-client config (JSON/TOML/YAML), safe merge + backup, host detection, endpoint self-test
 mcp.ts        McpServer with 7 tools; stdio + streamable-HTTP bindings
 api.ts        Express REST + ws upgrade + static dashboard
 smoke.ts      self-test used by `npm run smoke`
 ```
+
+External deps beyond Express/ws/zod/better-sqlite3: `smol-toml` and `yaml` back the connect module's config merges (Codex is TOML, Hermes is YAML).
 
 ## Adapter contract
 
@@ -35,7 +38,7 @@ interface ChinvatAdapter {
 }
 ```
 
-`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends).
+`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Ten modules ship built-in (ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x); more load from `modules/` at boot.
 
 ## Job lifecycle
 
@@ -50,6 +53,19 @@ mode:"async" returns {job_id} immediately. Parent/child via parent_id; tree in d
 
 Events (`job_events`): every transition + adapter logs, streamed over `/ws` and into Telegram when configured.
 
+## Connecting coordinators
+
+`connect.ts` turns "add Chinvat to my agent" into a first-class flow. For each supported client (Codex, Claude Desktop, Claude Code, Hermes, Cursor, Generic) it knows the config format, file location, transports, scopes, and restart behavior. REST surface under `/api/connect`:
+
+```
+GET  /connect/clients   list clients with detection, resolved paths, ready-to-copy snippets, one-commands
+POST /connect/test      real MCP handshake against the hub's own /mcp, then workers_list
+POST /connect/preview   compute the merged config file without writing (diff + backup path)
+POST /connect/apply     back up any existing file (timestamped) then write the merged config
+```
+
+Merges are non-destructive: parse the existing file (JSON/TOML/YAML), set only the `chinvat` entry, serialize back. Auto-install targets user/global scope (well-defined absolute paths); project scope is copy/one-command so nothing is written into an unchosen folder. Claude Desktop has no native HTTP transport, so it defaults to stdio (HTTP offered via `mcp-remote`).
+
 ## Data model (SQLite)
 
 ```
@@ -63,4 +79,4 @@ Config is a JSON file, not DB — human-editable, easy to back up: `{ port, modu
 
 ## Security posture (v0.1)
 
-Binds 127.0.0.1 only. Dashboard/REST unauthenticated **on localhost by design**; `/mcp` same. Auth middleware hook exists (`api.ts`) so the v1.0 remote release adds token/OIDC without restructuring. Secrets never leave the machine except inside calls to the services they belong to.
+Binds 127.0.0.1 only. Dashboard/REST unauthenticated **on localhost by design**; `/mcp` same. The `/connect/apply` route writes to the user's own coordinator config files (their machine, their process) and always backs up first. Auth middleware hook exists (`api.ts`) so the v1.0 remote release adds token/OIDC without restructuring. Secrets never leave the machine except inside calls to the services they belong to.
