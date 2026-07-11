@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "chinvat": {
+      "command": "node",
+      "args": ["<REPO>/hub/dist/index.js", "--stdio"]
+    }
+  }
+}

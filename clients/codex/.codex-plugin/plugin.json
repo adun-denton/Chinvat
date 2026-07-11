@@ -1,0 +1,7 @@
+{
+  "name": "local-labor-hub",
+  "version": "0.1.0",
+  "description": "Chinvat local MCP labor hub — delegate work to local/remote models, Windows, and messaging/publishing modules.",
+  "mcp": ".mcp.json",
+  "skills": ["../claude/skills/chinvat/SKILL.md"]
+}
