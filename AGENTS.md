@@ -60,4 +60,3 @@ modules/            external drop-in adapters (git-ignored contents)
 - Do not bind to `0.0.0.0` — remote exposure is a roadmap item with its own auth design (docs/ROADMAP.md).
 - `/connect/apply` may only write the user's coordinator config files, merge-only, always with a backup — never overwrite wholesale.
 - Do not push `data/`, `dist/`, `node_modules/`, or lockfiles (repo is synced via API; deps are semver-pinned).
-```
