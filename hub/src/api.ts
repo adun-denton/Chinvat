@@ -6,6 +6,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Hub } from './hub.js';
 import { handleStreamableHttp } from './mcp.js';
+import {
+  makeConnectCtx,
+  listClients,
+  previewInstall,
+  applyInstall,
+  testEndpoint,
+  type Transport,
+} from './connect.js';
 
 const DASHBOARD_DIR = path.resolve(import.meta.dirname, '..', '..', 'dashboard', 'dist');
 
@@ -17,9 +25,10 @@ function auth(_req: Request, _res: Response, next: NextFunction): void {
   next();
 }
 
-export function buildHttp(hub: Hub): { app: Express; server: Server } {
+export function buildHttp(hub: Hub, port: number): { app: Express; server: Server } {
   const app = express();
   app.use(express.json({ limit: '25mb' }));
+  const connectCtx = () => makeConnectCtx(hub.config.get().bind, port);
 
   // MCP Streamable HTTP
   app.post('/mcp', auth, (req, res) => void handleStreamableHttp(hub, req, res));
@@ -38,6 +47,7 @@ export function buildHttp(hub: Hub): { app: Express; server: Server } {
       version: '0.1.0',
       platform: process.platform,
       uptime_sec: Math.round(process.uptime()),
+      endpoint: connectCtx().url,
       jobs: hub.jobs.counts(),
       modules_enabled: modules.filter((m) => m.enabled).length,
       modules_total: modules.length,
@@ -50,7 +60,6 @@ export function buildHttp(hub: Hub): { app: Express; server: Server } {
     const out = await Promise.all(
       list.map(async (m) => {
         const settings = hub.config.module(m.name);
-        // never leak secret values; report which secret keys are set
         const adapter = hub.registry.get(m.name)!;
         const configPublic: Record<string, unknown> = {};
         for (const field of adapter.configSchema) {
@@ -77,7 +86,6 @@ export function buildHttp(hub: Hub): { app: Express; server: Server } {
 
   api.put('/modules/:name/config', (req, res) => {
     if (!hub.registry.get(req.params.name)) return res.status(404).json({ error: 'unknown module' });
-    // strip masked placeholders so we don't overwrite secrets with dots
     const incoming = { ...(req.body?.config ?? {}) };
     for (const [k, v] of Object.entries(incoming)) if (v === '••••••') delete incoming[k];
     const updated = hub.config.updateModule(req.params.name, { config: incoming });
@@ -164,6 +172,31 @@ export function buildHttp(hub: Hub): { app: Express; server: Server } {
   api.post('/approvals/:id/deny', (req, res) => {
     const okd = hub.jobs.resolveApproval(req.params.id, 'denied', 'dashboard');
     res.status(okd ? 200 : 409).json({ ok: okd });
+  });
+
+  // Connect a coordinator
+  api.get('/connect/clients', (_req, res) => {
+    res.json(listClients(connectCtx()));
+  });
+
+  api.post('/connect/test', async (_req, res) => {
+    res.json(await testEndpoint(connectCtx()));
+  });
+
+  api.post('/connect/preview', (req, res) => {
+    try {
+      res.json(previewInstall(connectCtx(), String(req.body?.client), (req.body?.transport ?? 'http') as Transport));
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  api.post('/connect/apply', (req, res) => {
+    try {
+      res.json(applyInstall(connectCtx(), String(req.body?.client), (req.body?.transport ?? 'http') as Transport));
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
   app.use('/api', api);
