@@ -8,7 +8,7 @@ export default function Modules({ tick, notify }: { tick: number; notify: (m: st
   const [open, setOpen] = useState<string | null>(null);
 
   const load = () => api.modules().then(setMods).catch(() => {});
-  useEffect(load, [tick]);
+  useEffect(() => { void load(); }, [tick]);
 
   return (
     <div className="grid c2">

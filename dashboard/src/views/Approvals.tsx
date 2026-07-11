@@ -6,7 +6,7 @@ export default function Approvals({ tick, notify, onStatus }: { tick: number; no
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = () => api.approvals().then(setItems).catch(() => {});
-  useEffect(load, [tick]);
+  useEffect(() => { void load(); }, [tick]);
 
   const decide = async (id: string, ok: boolean) => {
     setBusy(id);
