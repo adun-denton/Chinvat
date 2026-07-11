@@ -15,9 +15,19 @@ export interface Job {
 }
 export interface Approval { id: string; job_id: string; module: string; operation: string; args: Record<string, any>; requested_at: number }
 export interface Status {
-  name: string; version: string; platform: string; uptime_sec: number;
+  name: string; version: string; platform: string; uptime_sec: number; endpoint: string;
   jobs: Record<string, number>; modules_enabled: number; modules_total: number; pending_approvals: number;
 }
+export interface ClientView {
+  id: string; name: string; blurb: string; format: 'json' | 'toml' | 'yaml';
+  transports: string[]; defaultTransport: string; scopes: string[]; restart: string; note?: string;
+  autoInstall: boolean; globalPath: string | null; projectPath: string;
+  detected: { installed: boolean; via: string };
+  snippets: Record<string, string>; oneCommand?: Record<string, string>;
+}
+export interface EndpointTest { ok: boolean; url: string; detail: string; toolCount?: number; workerCount?: number; workers?: string[] }
+export interface InstallPreview { clientId: string; transport: string; path: string; format: string; exists: boolean; before: string; after: string; backupPath: string | null }
+export interface InstallResult { path: string; backup: string | null; merged: boolean }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -46,6 +56,12 @@ export const api = {
   approvals: () => req<Approval[]>('/approvals'),
   approve: (id: string) => req(`/approvals/${id}/approve`, { method: 'POST' }),
   deny: (id: string) => req(`/approvals/${id}/deny`, { method: 'POST' }),
+  connectClients: () => req<{ endpoint: string; clients: ClientView[] }>('/connect/clients'),
+  connectTest: () => req<EndpointTest>('/connect/test', { method: 'POST' }),
+  connectPreview: (client: string, transport: string) =>
+    req<InstallPreview>('/connect/preview', { method: 'POST', body: JSON.stringify({ client, transport }) }),
+  connectApply: (client: string, transport: string) =>
+    req<InstallResult>('/connect/apply', { method: 'POST', body: JSON.stringify({ client, transport }) }),
 };
 
 /** Subscribe to the hub's live event stream; invokes cb on every event and auto-reconnects. */
@@ -80,3 +96,4 @@ export function ago(ts: number | null): string {
   return `${Math.round(s / 86400)}d ago`;
 }
 export const short = (id: string) => id.slice(0, 8);
+export function copy(text: string): void { navigator.clipboard?.writeText(text); }

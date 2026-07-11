@@ -5,9 +5,9 @@ import Jobs from './views/Jobs';
 import Approvals from './views/Approvals';
 import Modules from './views/Modules';
 import Playground from './views/Playground';
-import Settings from './views/Settings';
+import Connect from './views/Connect';
 
-type ViewId = 'overview' | 'jobs' | 'approvals' | 'modules' | 'playground' | 'settings';
+type ViewId = 'overview' | 'jobs' | 'approvals' | 'modules' | 'playground' | 'connect';
 
 const I = {
   overview: 'M3 12l9-8 9 8M5 10v9h5v-6h4v6h5v-9',
@@ -15,7 +15,7 @@ const I = {
   approvals: 'M20 6L9 17l-5-5',
   modules: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   playground: 'M5 3l14 9-14 9z',
-  settings: 'M12 8a4 4 0 100 8 4 4 0 000-8zM2 12h3M19 12h3M12 2v3M12 19v3',
+  connect: 'M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.5 1.5M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7L12 19',
 };
 
 function Icon({ d }: { d: string }) {
@@ -31,7 +31,7 @@ const NAV: { id: ViewId; label: string }[] = [
   { id: 'approvals', label: 'Approvals' },
   { id: 'modules', label: 'Modules' },
   { id: 'playground', label: 'Playground' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'connect', label: 'Connect' },
 ];
 
 const TITLES: Record<ViewId, { h: string; sub: string }> = {
@@ -40,7 +40,7 @@ const TITLES: Record<ViewId, { h: string; sub: string }> = {
   approvals: { h: 'Approvals', sub: 'work waiting to be weighed' },
   modules: { h: 'Modules', sub: 'the workers on the far bank' },
   playground: { h: 'Playground', sub: 'call a module by hand' },
-  settings: { h: 'Settings', sub: 'connect a coordinator to Chinvat' },
+  connect: { h: 'Connect', sub: 'wire a coordinator to the hub in under a minute' },
 };
 
 export default function App() {
@@ -59,7 +59,7 @@ export default function App() {
 
   const connected = useHubEvents(
     useCallback((evt: any) => {
-      setTick((n) => n + 1); // nudge child views to refetch
+      setTick((n) => n + 1);
       if (evt.type === 'approval.requested') setFlash('New approval request');
       if (evt.type === 'job.status' || evt.type === 'approval.resolved') refreshStatus();
     }, [refreshStatus])
@@ -109,7 +109,7 @@ export default function App() {
           {view === 'approvals' && <Approvals tick={tick} notify={notify} onStatus={refreshStatus} />}
           {view === 'modules' && <Modules tick={tick} notify={notify} />}
           {view === 'playground' && <Playground notify={notify} />}
-          {view === 'settings' && <Settings status={status} />}
+          {view === 'connect' && <Connect status={status} />}
         </section>
       </main>
 
