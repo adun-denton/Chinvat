@@ -248,3 +248,10 @@ a { color: var(--bridge); }
   .content, .topbar { padding-left: 18px; padding-right: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { .mote.run { animation: none; } }
+
+/* Connect view */
+.endpoint-url, code.path { font-family: var(--mono); font-size: 12.5px; background: #0b1512;
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; color: var(--bridge); word-break: break-all; }
+code.path { color: var(--ink-dim); }
+.restart { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--gold-deep); border-radius: 8px; background: #17140a; }
