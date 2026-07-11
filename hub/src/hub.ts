@@ -16,8 +16,9 @@ import whatsapp from './adapters/whatsapp.js';
 import facebook from './adapters/facebook.js';
 import instagram from './adapters/instagram.js';
 import linkedin from './adapters/linkedin.js';
+import x from './adapters/x.js';
 
-const BUILTINS = [ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin];
+const BUILTINS = [ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x];
 
 /** Composition root: one Hub per process, shared by stdio MCP, HTTP MCP, REST and WS. */
 export class Hub {

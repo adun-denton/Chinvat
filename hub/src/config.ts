@@ -27,6 +27,7 @@ const DEFAULT_TIERS: Record<string, Tier> = {
   facebook: 'approve',
   instagram: 'approve',
   linkedin: 'approve',
+  x: 'approve',
 };
 
 const DEFAULT_ENABLED = new Set(['ollama', 'openrouter', 'system', 'telegram', 'wordpress']);
