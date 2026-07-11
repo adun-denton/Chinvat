@@ -22,10 +22,19 @@ export default function Modules({ tick, notify }: { tick: number; notify: (m: st
 function ModuleCard({ m, open, onToggle, notify, reload }: { m: ModuleView; open: boolean; onToggle: () => void; notify: (s: string) => void; reload: () => void }) {
   const [form, setForm] = useState<Record<string, any>>(m.config);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   useEffect(() => setForm(m.config), [m]);
 
   const setTier = async (tier: string) => { try { await api.setTier(m.name, tier); notify(`${m.name} → ${tier}`); reload(); } catch (e: any) { notify(e.message); } };
   const toggle = async () => { try { await api.setEnabled(m.name, !m.enabled); reload(); } catch (e: any) { notify(e.message); } };
+  const test = async () => {
+    setTesting(true);
+    try {
+      const h = await api.moduleTest(m.name);
+      notify(`${m.name}: ${h.ok ? 'connected' : 'failed'}${h.detail ? ' — ' + h.detail : ''}`);
+      reload();
+    } catch (e: any) { notify(e.message); } finally { setTesting(false); }
+  };
   const save = async () => {
     setSaving(true);
     try { await api.setConfig(m.name, form); notify(`${m.name} configuration saved`); reload(); }
@@ -56,6 +65,7 @@ function ModuleCard({ m, open, onToggle, notify, reload }: { m: ModuleView; open
           ))}
         </div>
         <div className="split">
+          <button className="btn ghost sm" onClick={test} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
           <button className="btn ghost sm" onClick={toggle}>{m.enabled ? 'Disable' : 'Enable'}</button>
           {m.configSchema.length > 0 && <button className="btn sm" onClick={onToggle}>{open ? 'Close' : 'Configure'}</button>}
         </div>

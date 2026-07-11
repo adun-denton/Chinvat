@@ -49,6 +49,7 @@ export const api = {
     req(`/modules/${name}/tier`, { method: 'PUT', body: JSON.stringify({ tier }) }),
   setEnabled: (name: string, enabled: boolean) =>
     req(`/modules/${name}/enabled`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
+  moduleTest: (name: string) => req<HealthStatus>(`/modules/${name}/test`, { method: 'POST' }),
   jobs: (q = '') => req<Job[]>(`/jobs${q}`),
   job: (id: string) => req<Job & { children: Job[]; events: any[]; artifacts: any[] }>(`/jobs/${id}`),
   submit: (body: any) => req<Job>('/jobs', { method: 'POST', body: JSON.stringify(body) }),
