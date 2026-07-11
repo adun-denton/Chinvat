@@ -5,9 +5,9 @@
 Chinvat is a local **MCP labor hub** for Windows. It gives any MCP-capable coordinator (Claude Code / Claude Desktop, Codex, Cursor, Hermes, …) a single server through which it can delegate work to local models, remote specialist models, Windows itself, and your communication and publishing channels — with a persistent job queue, artifacts, and a policy layer that decides what crosses the bridge.
 
 ```
-Coordinator agent ──MCP──▶ Chinvat Hub ──▶ Ollama · OpenRouter · Windows/System
-        (Claude, Codex…)      │             Telegram · WordPress · WhatsApp
-                              │             Facebook · Instagram · LinkedIn · X
+Coordinator agent ──MCP──▶ Chinvat Hub ──▶ Ollama · OpenRouter · OpenAI-compatible
+        (Claude, Codex…)      │             Windows/System · Telegram · WordPress
+                              │             WhatsApp · Facebook · Instagram · LinkedIn · X
                               ├─ SQLite job engine (parent/child, artifacts, recovery)
                               ├─ Policy tiers (observe / approve / autonomous)
                               └─ Web dashboard @ http://localhost:7777
@@ -62,6 +62,7 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 |---|---|---|
 | `ollama` | full | local Ollama at `127.0.0.1:11434` |
 | `openrouter` | full | API key |
+| `openai-compatible` | full | baseUrl + the provider’s own API key |
 | `telegram` | full (incl. approval buttons) | bot token |
 | `wordpress` | full | site URL + application password |
 | `system` (Windows/shell/files) | full | policy tier ≥ approve for writes |
@@ -71,7 +72,7 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `linkedin` | token-config | OAuth token (`w_member_social`) |
 | `x` (Twitter) | token-config | OAuth 2.0 user token (`tweet.write`) |
 
-New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
+`openai-compatible` is one reusable worker for NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure, and any other OpenAI-compatible endpoint — point it at a `baseUrl` with the provider’s key. New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
 
 ## Policy: what crosses the bridge
 

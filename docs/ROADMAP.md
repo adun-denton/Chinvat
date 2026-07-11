@@ -2,6 +2,7 @@
 
 ## v0.2 — routing & reach
 - `module:"auto"`: route by task type, cost, latency, context window, availability, historical success (metrics already captured per job in v0.1).
+- **Named openai-compatible instances** (`nvidia`, `groq`, `together`, `lmstudio`, `vllm`, …) once the registry supports multiple instances per provider — the provider layer is already a factory, so each is a one-line registration.
 - Blender module (Python RPC), browser-automation module.
 - Objectives: persistent parent goals that survive restarts and accumulate child results.
 - Scheduled + event triggers (cron-like, webhook-in).
@@ -21,8 +22,8 @@
 - Audit export, retention policies.
 
 ## Shipped
-- Nine channel/model modules incl. **X (Twitter)**, LinkedIn, Instagram, Facebook, WhatsApp, WordPress, Telegram, OpenRouter, Ollama.
-- First-class **Connect** flow: per-client config, safe auto-install, endpoint self-test.
+- Eleven modules incl. the reusable **openai-compatible** worker (NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure), **X (Twitter)**, LinkedIn, Instagram, Facebook, WhatsApp, WordPress, Telegram, OpenRouter, Ollama.
+- First-class **Connect** flow: per-client config, safe auto-install, endpoint self-test; per-module **Test connection**.
 
 ## Standing chores
 - Track MCP spec releases (2026-07-28 RC → final) and SDK upgrades.
