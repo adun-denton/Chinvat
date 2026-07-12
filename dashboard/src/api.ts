@@ -26,8 +26,8 @@ export interface ClientView {
   snippets: Record<string, string>; oneCommand?: Record<string, string>;
 }
 export interface EndpointTest { ok: boolean; url: string; detail: string; toolCount?: number; workerCount?: number; workers?: string[] }
-export interface InstallPreview { clientId: string; transport: string; path: string; format: string; exists: boolean; before: string; after: string; backupPath: string | null }
-export interface InstallResult { path: string; backup: string | null; merged: boolean }
+export interface InstallPreview { clientId: string; transport: string; path: string; format: string; exists: boolean; before: string; after: string; backupPath: string | null; warning: string | null }
+export interface InstallResult { path: string; backup: string | null; merged: boolean; warning: string | null }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {

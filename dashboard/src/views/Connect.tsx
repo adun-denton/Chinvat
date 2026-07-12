@@ -58,7 +58,7 @@ function ClientCard({ c, onCopied, copiedId }: { c: ClientView; onCopied: (id: s
   const [transport, setTransport] = useState(c.defaultTransport);
   const [preview, setPreview] = useState<InstallPreview | null>(null);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ path: string; backup: string | null; test: EndpointTest } | null>(null);
+  const [result, setResult] = useState<{ path: string; backup: string | null; warning: string | null; test: EndpointTest } | null>(null);
   const [err, setErr] = useState('');
 
   const snippet = c.snippets[transport] ?? '';
@@ -74,7 +74,7 @@ function ClientCard({ c, onCopied, copiedId }: { c: ClientView; onCopied: (id: s
     try {
       const r = await api.connectApply(c.id, transport);
       const t = await api.connectTest();
-      setResult({ path: r.path, backup: r.backup, test: t });
+      setResult({ path: r.path, backup: r.backup, warning: r.warning, test: t });
       setPreview(null);
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -154,6 +154,7 @@ function ClientCard({ c, onCopied, copiedId }: { c: ClientView; onCopied: (id: s
                   </div>
                   <div className="faint" style={{ fontSize: 12, marginBottom: 8 }}>{preview.path}</div>
                   <pre className="out">{preview.after}</pre>
+                  {preview.warning && <div className="restart" style={{ marginTop: 10 }}>{preview.warning}</div>}
                   <div className="split" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
                     <button className="btn ghost sm" onClick={() => setPreview(null)}>Cancel</button>
                     <button className="btn gold sm" disabled={busy} onClick={confirm}>{busy ? 'Writing…' : 'Confirm & write'}</button>
@@ -170,6 +171,7 @@ function ClientCard({ c, onCopied, copiedId }: { c: ClientView; onCopied: (id: s
                   </div>
                   <div className="faint" style={{ fontSize: 12, marginTop: 8 }}>Wrote {result.path}{result.backup ? ` · backed up existing config` : ''}.</div>
                   <div style={{ fontSize: 13, marginTop: 6 }}>{c.restart}</div>
+                  {result.warning && <div className="restart" style={{ marginTop: 8 }}>{result.warning}</div>}
                 </div>
               )}
             </div>
