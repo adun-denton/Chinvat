@@ -221,6 +221,9 @@ export function buildHttp(hub: Hub, port: number): { app: Express; server: Serve
   // WebSocket: live job/approval/module events
   const server = createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
+  // ws re-emits the http server's 'error' onto the wss; keep a listener so a listen
+  // failure (e.g. EADDRINUSE from a second hub) is logged, not thrown as unhandled.
+  wss.on('error', (e) => process.stderr.write(`[chinvat] websocket server error: ${e}\n`));
   wss.on('connection', (ws) => {
     const unsub = hub.bus.on((evt) => {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(evt));

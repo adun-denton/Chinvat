@@ -318,8 +318,14 @@ export class JobEngine {
     for (const row of queued) {
       const active = this.running.get(row.module) ?? 0;
       if (active >= limit) continue;
+      // Atomic claim: only the instance whose UPDATE actually flips 'queued'->'running'
+      // runs the job. Safe when several hubs share one WAL database (e.g. a client-spawned
+      // stdio hub alongside the dashboard hub) — a job is executed exactly once.
+      const claimed = this.db
+        .prepare(`UPDATE jobs SET status='running', started_at=? WHERE id=? AND status='queued'`)
+        .run(Date.now(), row.id).changes;
+      if (claimed !== 1) continue;
       this.running.set(row.module, active + 1);
-      this.db.prepare(`UPDATE jobs SET status='running', started_at=? WHERE id=?`).run(Date.now(), row.id);
       const job = this.get(row.id)!;
       this.bus.emit({ type: 'job.status', job });
       void this.runJob(job).finally(() => {
