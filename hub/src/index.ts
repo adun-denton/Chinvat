@@ -17,16 +17,26 @@ async function main(): Promise<void> {
 
   const stdio = hasFlag('--stdio');
   const noHttp = hasFlag('--no-http');
+  const explicitHttp = hasFlag('--http') || flagValue('--port') !== undefined;
 
   if (stdio) {
     // In stdio mode, stdout is the MCP channel — keep it clean; logs go to stderr.
     await serveStdio(hub);
   }
 
-  if (!noHttp) {
+  // Serve HTTP for a normal run; in stdio mode only when explicitly asked. This keeps a
+  // client-spawned stdio hub from trying to bind :7777 while the dashboard hub already owns it.
+  if (!noHttp && (!stdio || explicitHttp)) {
     const cfg = hub.config.get();
     const port = Number(flagValue('--port') ?? cfg.port);
     const { server } = buildHttp(hub, port);
+    server.on('error', (e: NodeJS.ErrnoException) => {
+      process.stderr.write(
+        `[chinvat] http server error: ${e.code ?? ''} ${e.message ?? e}` +
+          (e.code === 'EADDRINUSE' ? ` (port ${port} is already in use — another hub may be running)` : '') +
+          '\n'
+      );
+    });
     server.listen(port, cfg.bind, () => {
       process.stderr.write(
         `[chinvat] hub on http://${cfg.bind}:${port}  ·  dashboard + /api + /ws + /mcp\n`

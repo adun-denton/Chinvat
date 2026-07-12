@@ -43,12 +43,73 @@ function onPath(bin: string): boolean {
   return false;
 }
 
+// ── Claude Desktop path resolution (classic install vs MSIX/Microsoft Store) ──
+// The Store build is an MSIX package whose AppData is virtualized under
+// %LOCALAPPDATA%\Packages\<pkg>\LocalCache\Roaming\Claude — the app never reads
+// the real %APPDATA%\Claude. We must target the folder the app actually reads.
+export interface ClaudeEnv {
+  platform: NodeJS.Platform;
+  home: string;
+  localAppData?: string;
+  appData?: string;
+  listPackages?: (packagesDir: string) => string[];
+}
+
+export function resolveClaudeDesktop(env: ClaudeEnv): { dir: string; flavor: 'msix' | 'classic' | 'mac' | 'linux' } {
+  if (env.platform === 'win32') {
+    const lad = env.localAppData || path.join(env.home, 'AppData', 'Local');
+    const packagesDir = path.join(lad, 'Packages');
+    const names = (env.listPackages ? env.listPackages(packagesDir) : []) || [];
+    const pkg = names.find((n) => /^Claude_/i.test(n)) || names.find((n) => /claude/i.test(n));
+    if (pkg) return { dir: path.join(packagesDir, pkg, 'LocalCache', 'Roaming', 'Claude'), flavor: 'msix' };
+    const ad = env.appData || path.join(env.home, 'AppData', 'Roaming');
+    return { dir: path.join(ad, 'Claude'), flavor: 'classic' };
+  }
+  if (env.platform === 'darwin')
+    return { dir: path.join(env.home, 'Library', 'Application Support', 'Claude'), flavor: 'mac' };
+  return { dir: path.join(env.home, '.config', 'Claude'), flavor: 'linux' };
+}
+
+function realClaudeEnv(): ClaudeEnv {
+  return {
+    platform: process.platform,
+    home,
+    localAppData: process.env.LOCALAPPDATA,
+    appData: process.env.APPDATA,
+    listPackages: (p) => {
+      try {
+        return fs.readdirSync(p);
+      } catch {
+        return [];
+      }
+    },
+  };
+}
+
+/** Does a folder look like Claude Desktop's live data dir (has app artifacts, not just our file)? */
+const CLAUDE_ARTIFACTS = ['logs', 'Local Storage', 'Session Storage', 'Cache', 'IndexedDB', 'local-agent-mode-sessions'];
+export function looksLikeClaudeAppDir(dir: string, ex: (p: string) => boolean = (p) => fs.existsSync(p)): boolean {
+  if (!ex(dir)) return false;
+  return CLAUDE_ARTIFACTS.some((a) => ex(path.join(dir, a)));
+}
+
+function claudeDesktopDir(): { dir: string; flavor: string } {
+  return resolveClaudeDesktop(realClaudeEnv());
+}
 function claudeDesktopPath(): string {
-  if (process.platform === 'win32')
-    return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Claude', 'claude_desktop_config.json');
-  if (process.platform === 'darwin')
-    return path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
-  return path.join(home, '.config', 'Claude', 'claude_desktop_config.json');
+  return path.join(claudeDesktopDir().dir, 'claude_desktop_config.json');
+}
+
+function npxCommand(ctx: ConnectCtx): string {
+  if (process.platform === 'win32') {
+    const cand = path.join(path.dirname(ctx.nodePath), 'npx.cmd');
+    try {
+      if (fs.existsSync(cand)) return cand;
+    } catch {
+      /* ignore */
+    }
+  }
+  return 'npx';
 }
 
 // format (de)serialization
@@ -76,16 +137,18 @@ interface ClientDef {
   defaultTransport: Transport;
   scopes: Scope[];
   restart: string;
-  autoInstall: boolean; // global (user-scope) auto-install supported
+  autoInstall: boolean;
   note?: string;
   globalPath(): string | null;
   projectPath: string;
   detect(): { installed: boolean; via: string };
   entry(t: Transport, ctx: ConnectCtx): Record<string, unknown>;
   oneCommand?(scope: Scope, ctx: ConnectCtx): string | undefined;
+  verify?(configPath: string): string | null;
 }
 
-const stdioEntry = (ctx: ConnectCtx) => ({ command: 'node', args: [ctx.indexPath, '--stdio'] });
+// stdio worker entry: absolute node path so it works under Claude Desktop's minimal PATH.
+const stdioEntry = (ctx: ConnectCtx) => ({ command: ctx.nodePath, args: [ctx.indexPath, '--stdio'] });
 
 const CLIENTS: ClientDef[] = [
   {
@@ -108,19 +171,34 @@ const CLIENTS: ClientDef[] = [
   {
     id: 'claude-desktop',
     name: 'Claude Desktop',
-    blurb: 'Anthropic desktop app. Speaks stdio natively; HTTP via the mcp-remote bridge.',
+    blurb: 'Anthropic desktop app (classic installer or Microsoft Store / MSIX build).',
     format: 'json',
     container: 'mcpServers',
     transports: ['stdio', 'http'],
     defaultTransport: 'stdio',
     scopes: ['global'],
-    restart: 'Quit Claude Desktop completely (tray included) and reopen it.',
+    restart: 'Quit Claude Desktop completely (tray included) and reopen it. Then check logs\\mcp-server-chinvat.log appears.',
     autoInstall: true,
-    note: 'Claude Desktop has no native HTTP transport, so stdio is the reliable choice for a local hub. The HTTP option shells out to npx mcp-remote.',
+    note: 'No native HTTP transport, so stdio is the default; the HTTP option shells out to npx mcp-remote against the running hub (one shared hub, one queue). Store (MSIX) builds virtualize their config folder — Chinvat detects and targets the folder the app actually reads.',
     globalPath: claudeDesktopPath,
     projectPath: '(global only)',
-    detect: () => (exists(path.dirname(claudeDesktopPath())) ? { installed: true, via: 'Claude config folder' } : { installed: false, via: '' }),
-    entry: (t, ctx) => (t === 'stdio' ? stdioEntry(ctx) : { command: 'npx', args: ['-y', 'mcp-remote', ctx.url] }),
+    detect: () => {
+      const { dir, flavor } = claudeDesktopDir();
+      if (process.platform === 'win32') {
+        if (flavor === 'msix') return { installed: true, via: 'Claude (Microsoft Store)' };
+        const lad = process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local');
+        if (exists(path.join(lad, 'AnthropicClaude')) || exists(path.join(lad, 'Programs', 'Claude')))
+          return { installed: true, via: 'Claude (desktop install)' };
+      }
+      // real app dir has artifacts (logs/, Local Storage/…), not merely a config file we wrote
+      if (looksLikeClaudeAppDir(dir)) return { installed: true, via: 'Claude data folder' };
+      return { installed: false, via: '' };
+    },
+    entry: (t, ctx) => (t === 'stdio' ? stdioEntry(ctx) : { command: npxCommand(ctx), args: ['-y', 'mcp-remote', ctx.url] }),
+    verify: (configPath) =>
+      looksLikeClaudeAppDir(path.dirname(configPath))
+        ? null
+        : 'This folder has no Claude app data (no logs/ or Local Storage/). If Chinvat does not appear after a full restart, your Claude Desktop may be a Microsoft Store (MSIX) build with a virtualized config path — reopen the app once so it creates its data folder, then retry.',
   },
   {
     id: 'claude-code',
@@ -265,6 +343,7 @@ export interface InstallPreview {
   before: string;
   after: string;
   backupPath: string | null;
+  warning: string | null;
 }
 
 /** Compute the merged file without writing. Global/user scope only. */
@@ -295,6 +374,7 @@ export function previewInstall(ctx: ConnectCtx, clientId: string, transport: Tra
     before,
     after,
     backupPath: fileExists ? `${target}.chinvat-backup-${stamp}` : null,
+    warning: d.verify ? d.verify(target) : null,
   };
 }
 
@@ -302,6 +382,7 @@ export interface InstallResult {
   path: string;
   backup: string | null;
   merged: boolean;
+  warning: string | null;
 }
 
 /** Back up (if present) then write the merged config. */
@@ -310,7 +391,7 @@ export function applyInstall(ctx: ConnectCtx, clientId: string, transport: Trans
   fs.mkdirSync(path.dirname(p.path), { recursive: true });
   if (p.exists && p.backupPath) fs.copyFileSync(p.path, p.backupPath);
   fs.writeFileSync(p.path, p.after);
-  return { path: p.path, backup: p.exists ? p.backupPath : null, merged: p.exists };
+  return { path: p.path, backup: p.exists ? p.backupPath : null, merged: p.exists, warning: p.warning };
 }
 
 export interface EndpointTest {
