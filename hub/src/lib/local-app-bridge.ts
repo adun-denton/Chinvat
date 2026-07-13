@@ -27,8 +27,11 @@ export interface BridgeOptions {
 }
 
 export interface BridgeCommand {
-  type: string;
+  /** Command name for {type, params} dialects (blender-mcp, most gimp-mcp ops). */
+  type?: string;
   params?: Record<string, unknown>;
+  /** Escape hatch: send this object verbatim instead (e.g. gimp-mcp's {"cmds": [...]}). */
+  raw?: Record<string, unknown>;
 }
 
 export interface SendOptions {
@@ -38,6 +41,9 @@ export interface SendOptions {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RESPONSE = 64 * 1024 * 1024; // 64 MiB
+/** Outbound request cap — commands are small; anything bigger is a caller bug
+ *  and would monopolize the serialized queue (Grok gimp-review fix #2). */
+const MAX_REQUEST_BYTES = 1024 * 1024; // 1 MiB
 
 /** Loopback only — a remote host would turn app scripting into network RCE and
  *  break shared-filesystem assumptions (e.g. screenshot temp paths). */
@@ -148,7 +154,12 @@ export class LocalAppBridge {
       );
 
       sock.once('connect', () => {
-        sock.write(JSON.stringify({ type: cmd.type, params: cmd.params ?? {} }));
+        const payload = cmd.raw ?? { type: cmd.type, params: cmd.params ?? {} };
+        if (!cmd.raw && !cmd.type) return fail('BridgeCommand needs type or raw');
+        const body = JSON.stringify(payload);
+        if (Buffer.byteLength(body, 'utf8') > MAX_REQUEST_BYTES)
+          return fail(`bridge request exceeds ${MAX_REQUEST_BYTES} bytes`);
+        sock.write(body);
       });
 
       sock.on('data', (chunk: Buffer) => {
@@ -168,10 +179,13 @@ export class LocalAppBridge {
         } catch {
           return; // not complete yet
         }
-        const res = parsed as { status?: string; result?: unknown; message?: unknown };
-        if (res.status === 'success') return succeed(res.result ?? {});
-        if (res.status === 'error')
-          return fail(`bridge error: ${typeof res.message === 'string' ? res.message : text.slice(0, 500)}`);
+        // Dialect tolerance: blender-mcp uses result/message, gimp-mcp uses results/error.
+        const res = parsed as { status?: string; result?: unknown; results?: unknown; message?: unknown; error?: unknown };
+        if (res.status === 'success') return succeed(res.result ?? res.results ?? {});
+        if (res.status === 'error') {
+          const msg = [res.message, res.error].find((m) => typeof m === 'string') as string | undefined;
+          return fail(`bridge error: ${msg ?? text.slice(0, 500)}`);
+        }
         fail(`bridge returned malformed response: ${text.slice(0, 200)}`);
       });
 

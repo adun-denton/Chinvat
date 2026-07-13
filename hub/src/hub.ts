@@ -20,8 +20,9 @@ import x from './adapters/x.js';
 import openaiCompat from './adapters/openai-compat.js';
 import blender from './adapters/blender.js';
 import orca from './adapters/orca.js';
+import gimp from './adapters/gimp.js';
 
-const BUILTINS = [ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca];
+const BUILTINS = [ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca, gimp];
 
 /** Composition root: one Hub per process, shared by stdio MCP, HTTP MCP, REST and WS. */
 export class Hub {
