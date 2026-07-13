@@ -56,6 +56,7 @@ function chinvat_bridge_info_response(): WP_REST_Response {
 			'theme_write'          => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'theme_write' ),
 			'options_update'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'options_update' ),
 			'plugins_toggle'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'plugins_toggle' ),
+			'child_scaffold'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'child_scaffold' ),
 			'relax_option_denylist' => function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_option_denylist' ),
 			'relax_backup'         => function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_backup' ),
 		),
@@ -93,5 +94,6 @@ function chinvat_bridge_capability_index(): array {
 		array( 'name' => 'chinvat-bridge/rankmath-update','risk' => 'act',       'cap' => 'edit_posts' ),
 		array( 'name' => 'chinvat-bridge/plugins-list',   'risk' => 'read',      'cap' => 'activate_plugins' ),
 		array( 'name' => 'chinvat-bridge/plugins-toggle', 'risk' => 'act',       'cap' => 'activate_plugins' ),
+		array( 'name' => 'chinvat-bridge/theme-scaffold-child', 'risk' => 'dangerous', 'cap' => 'edit_themes' ),
 	);
 }

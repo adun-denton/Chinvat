@@ -459,4 +459,139 @@ function chinvat_bridge_register_abilities(): void {
 			),
 		)
 	);
+
+	// theme-scaffold-child (DANGEROUS).
+	wp_register_ability(
+		'chinvat-bridge/theme-scaffold-child',
+		array(
+			'label'               => __( 'Scaffold child theme', 'chinvat-bridge' ),
+			'description'         => __( 'Create a block-aware child of the active theme (style.css, theme.json, header/footer parts, templates dir) and optionally activate it, giving theme-write an update-proof target.', 'chinvat-bridge' ),
+			'category'            => 'chinvat-theme',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'additionalProperties' => false,
+				'properties'           => array(
+					'slug'     => array( 'type' => 'string' ),
+					'name'     => array( 'type' => 'string' ),
+					'activate' => array( 'type' => 'boolean' ),
+				),
+			),
+			'output_schema'       => array( 'type' => 'object' ),
+			'permission_callback' => static function () {
+				return chinvat_bridge_permit( 'edit_themes', true, 'child_scaffold' );
+			},
+			'execute_callback'    => static function ( $input ) {
+				// Base the child on the active theme's TEMPLATE (its base), never on
+				// the stylesheet — otherwise activating over an existing child would
+				// create an unsupported child-of-child and can brick the site.
+				$parent_slug = get_template();
+				$parent      = wp_get_theme( $parent_slug );
+
+				$child_slug = ( isset( $input['slug'] ) && '' !== (string) $input['slug'] )
+					? sanitize_key( (string) $input['slug'] )
+					: $parent_slug . '-child';
+
+				$dir = chinvat_bridge_resolve_child_dir( $child_slug );
+				if ( is_wp_error( $dir ) ) {
+					return $dir;
+				}
+				if ( ! wp_mkdir_p( $dir ) ) {
+					return new WP_Error( 'chinvat_mkdir', __( 'Could not create child theme directory.', 'chinvat-bridge' ) );
+				}
+
+				// Re-confine after creation: the realpath of the new dir must still
+				// sit directly under the theme root, and must not be a symlink
+				// (defeats a symlink planted in the create window / TOCTOU).
+				$dir_root   = wp_normalize_path( realpath( $dir ) );
+				$theme_root = wp_normalize_path( realpath( get_theme_root() ) );
+				if ( ! $dir_root || ! $theme_root || is_link( $dir ) || 0 !== strpos( $dir_root . '/', $theme_root . '/' ) ) {
+					return new WP_Error( 'chinvat_path_escape', __( 'Child theme directory escaped the theme root.', 'chinvat-bridge' ) );
+				}
+
+				// Sanitize the display name so it cannot break out of the CSS header
+				// comment (e.g. a "*/" sequence) into arbitrary style.css content.
+				$name = isset( $input['name'] ) ? (string) $input['name'] : '';
+				$name = trim( preg_replace( '/[^\w \-.]/u', '', $name ) );
+				if ( '' === $name ) {
+					$name = $parent->exists() && $parent->get( 'Name' ) ? $parent->get( 'Name' ) . ' Child' : $child_slug;
+					$name = trim( preg_replace( '/[^\w \-.]/u', '', $name ) );
+				}
+				$name = substr( $name, 0, 80 );
+				if ( '' === $name ) {
+					$name = $child_slug;
+				}
+
+				$files = array();
+
+				// style.css defines the child; the Template header binds it to the parent.
+				$style = "/*\nTheme Name: {$name}\nTemplate: {$parent_slug}\nText Domain: {$child_slug}\nVersion: 1.0.0\nDescription: Child theme scaffolded by Chinvat WP Bridge.\n*/\n";
+				$w     = chinvat_bridge_child_write( $dir_root, 'style.css', $style );
+				if ( is_wp_error( $w ) ) {
+					return $w;
+				}
+				$files['style.css'] = (int) $w;
+
+				// Minimal theme.json — inherits the parent; this is the styles lever.
+				$theme_json = "{\n    \"\$schema\": \"https://schemas.wp.org/trunk/theme.json\",\n    \"version\": 3\n}\n";
+				$w          = chinvat_bridge_child_write( $dir_root, 'theme.json', $theme_json );
+				if ( is_wp_error( $w ) ) {
+					return $w;
+				}
+				$files['theme.json'] = (int) $w;
+
+				// Copy header/footer template parts from the parent as starting points.
+				$parent_dir = wp_normalize_path( realpath( get_theme_root() . '/' . $parent_slug ) );
+				if ( $parent_dir ) {
+					foreach ( array( 'header', 'footer' ) as $part ) {
+						$src = $parent_dir . '/parts/' . $part . '.html';
+						if ( is_file( $src ) && ! is_link( $src ) ) {
+							$content = (string) file_get_contents( $src );
+							$pw      = chinvat_bridge_child_write( $dir_root, 'parts/' . $part . '.html', $content );
+							if ( ! is_wp_error( $pw ) ) {
+								$files[ 'parts/' . $part . '.html' ] = (int) $pw;
+							}
+						}
+					}
+				}
+
+				// Ensure a templates/ directory exists for block-template overrides.
+				@wp_mkdir_p( $dir_root . '/templates' );
+
+				$activated = false;
+				$activate  = ( ! isset( $input['activate'] ) ) || ! empty( $input['activate'] );
+				if ( $activate ) {
+					if ( ! current_user_can( 'switch_themes' ) ) {
+						return new WP_Error( 'chinvat_forbidden', __( 'switch_themes capability required to activate the child theme.', 'chinvat-bridge' ) );
+					}
+					$child = wp_get_theme( $child_slug );
+					if ( ! $child->exists() ) {
+						return new WP_Error( 'chinvat_child_invalid', __( 'Scaffolded child theme is not recognised by WordPress.', 'chinvat-bridge' ) );
+					}
+					$errs = $child->errors();
+					if ( is_wp_error( $errs ) ) {
+						return new WP_Error( 'chinvat_child_invalid', __( 'Child theme is invalid: ', 'chinvat-bridge' ) . implode( '; ', $errs->get_error_messages() ) );
+					}
+					$parent_obj = $child->parent();
+					if ( ! $parent_obj || ! $parent_obj->exists() ) {
+						return new WP_Error( 'chinvat_parent_missing', __( 'Parent theme is missing; refusing to activate.', 'chinvat-bridge' ) );
+					}
+					switch_theme( $child_slug );
+					$activated = ( get_stylesheet() === $child_slug );
+				}
+
+				return array(
+					'child_slug'        => $child_slug,
+					'parent'            => $parent_slug,
+					'dir'               => $dir_root,
+					'files'             => $files,
+					'activated'         => $activated,
+					'active_stylesheet' => get_stylesheet(),
+				);
+			},
+			'meta'                => array(
+				'annotations'  => array( 'readonly' => false, 'destructive' => true, 'idempotent' => false ),
+				'show_in_rest' => true,
+			),
+		)
+	);
 }

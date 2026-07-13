@@ -120,6 +120,17 @@ const BRIDGE_OPS: BridgeOp[] = [
       action: { type: 'string', required: true, description: 'activate | deactivate' },
     },
   },
+  {
+    op: 'bridge_theme_scaffold_child',
+    ability: 'chinvat-bridge/theme-scaffold-child',
+    risk: 'dangerous',
+    description: 'Create a block-aware child of the active theme (style.css, theme.json, header/footer parts, templates dir) and optionally activate it, giving theme-write an update-proof target. Needs child_scaffold toggle.',
+    params: {
+      slug: { type: 'string', description: 'child theme slug; defaults to {parent}-child' },
+      name: { type: 'string', description: 'display name' },
+      activate: { type: 'boolean', description: 'switch the live site to the child (default true)' },
+    },
+  },
 ];
 
 const BRIDGE_OP_BY_NAME = new Map(BRIDGE_OPS.map((b) => [b.op, b]));

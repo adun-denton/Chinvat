@@ -354,3 +354,75 @@ function chinvat_bridge_backup( string $abs_path ) {
 	}
 	return $dest;
 }
+/**
+ * Resolve a child-theme slug to a confined absolute directory directly under
+ * the theme root. The directory must NOT already exist (no clobber, no symlink)
+ * and its parent must resolve to the theme root. Slug is strictly [a-z0-9_-].
+ *
+ * @param string $slug Desired child theme slug.
+ * @return string|WP_Error Confined absolute directory path.
+ */
+function chinvat_bridge_resolve_child_dir( string $slug ) {
+	$slug = strtolower( trim( $slug ) );
+	if ( '' === $slug || ! preg_match( '/^[a-z0-9_-]{2,60}$/', $slug ) ) {
+		return new WP_Error( 'chinvat_invalid_slug', __( 'Invalid child theme slug.', 'chinvat-bridge' ) );
+	}
+	$root = wp_normalize_path( realpath( get_theme_root() ) );
+	if ( ! $root ) {
+		return new WP_Error( 'chinvat_no_theme_root', __( 'Could not resolve theme root.', 'chinvat-bridge' ) );
+	}
+	$dir = $root . '/' . $slug;
+	// The parent of the target must be EXACTLY the theme root (no nesting/traversal).
+	if ( wp_normalize_path( dirname( $dir ) ) !== $root ) {
+		return new WP_Error( 'chinvat_path_escape', __( 'Resolved outside the theme root.', 'chinvat-bridge' ) );
+	}
+	// Refuse if anything already occupies the path, including a symlink.
+	if ( file_exists( $dir ) || is_link( $dir ) ) {
+		return new WP_Error( 'chinvat_exists', __( 'A theme with that slug already exists.', 'chinvat-bridge' ) );
+	}
+	return $dir;
+}
+
+/**
+ * Write a file inside a freshly-created child theme directory, confined to it.
+ * Validates each path segment, refuses symlinks, refuses clobbering an existing
+ * file, and proves the resolved parent sits under $dir_root before writing.
+ *
+ * @param string $dir_root Normalized realpath of the child theme directory.
+ * @param string $rel      Relative path within the child theme.
+ * @param string $content  Bytes to write.
+ * @return int|WP_Error Bytes written.
+ */
+function chinvat_bridge_child_write( string $dir_root, string $rel, string $content ) {
+	$dir_root = rtrim( wp_normalize_path( $dir_root ), '/' );
+	if ( '' === $dir_root ) {
+		return new WP_Error( 'chinvat_path_escape', __( 'Empty child theme root.', 'chinvat-bridge' ) );
+	}
+	$segments = explode( '/', trim( wp_normalize_path( $rel ), '/' ) );
+	foreach ( $segments as $seg ) {
+		if ( '' === $seg || '.' === $seg || '..' === $seg || ! preg_match( '/^[A-Za-z0-9._-]+$/', $seg ) ) {
+			return new WP_Error( 'chinvat_invalid_path', __( 'Invalid path segment.', 'chinvat-bridge' ) );
+		}
+	}
+	$abs    = $dir_root . '/' . implode( '/', $segments );
+	$parent = dirname( $abs );
+	if ( ! wp_mkdir_p( $parent ) ) {
+		return new WP_Error( 'chinvat_mkdir', __( 'Could not create directory.', 'chinvat-bridge' ) );
+	}
+	$rp = wp_normalize_path( realpath( $parent ) );
+	if ( ! $rp || 0 !== strpos( $rp . '/', $dir_root . '/' ) ) {
+		return new WP_Error( 'chinvat_path_escape', __( 'Write resolves outside the child theme directory.', 'chinvat-bridge' ) );
+	}
+	if ( is_link( $abs ) ) {
+		return new WP_Error( 'chinvat_path_escape', __( 'Refusing to write through a symlink.', 'chinvat-bridge' ) );
+	}
+	if ( file_exists( $abs ) ) {
+		return new WP_Error( 'chinvat_exists', __( 'Refusing to overwrite an existing file.', 'chinvat-bridge' ) );
+	}
+	$bytes = file_put_contents( $abs, $content, LOCK_EX );
+	if ( false === $bytes ) {
+		return new WP_Error( 'chinvat_write_failed', __( 'Write failed.', 'chinvat-bridge' ) );
+	}
+	@chmod( $abs, 0644 );
+	return (int) $bytes;
+}
