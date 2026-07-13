@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Chinvat WP Bridge
- * Description:       Extended admin surface (options, theme file IO, RankMath, plugin management) for the Chinvat MCP labor hub. Exposed as WordPress Abilities and a thin REST handshake, gated by capability + an explicit wp-config kill switch.
- * Version:           0.1.2
+ * Description:       Extended admin surface (options, theme file IO, RankMath, plugin management) for the Chinvat MCP labor hub. Exposed as WordPress Abilities and a thin REST handshake, gated by capability + a Developer Mode toggle.
+ * Version:           0.2.0
  * Requires PHP:      7.4
  * Requires at least: 6.4
  * Author:            adun-denton
@@ -18,14 +18,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CHINVAT_BRIDGE_VERSION', '0.1.2' );
-define( 'CHINVAT_BRIDGE_SCHEMA_VERSION', 1 );
+define( 'CHINVAT_BRIDGE_VERSION', '0.2.0' );
+define( 'CHINVAT_BRIDGE_SCHEMA_VERSION', 2 );
 define( 'CHINVAT_BRIDGE_REST_NS', 'chinvat-bridge/v1' );
 
+// Back-compat override: defining this true in wp-config.php forces Developer
+// Mode on regardless of the settings page.
 if ( ! defined( 'CHINVAT_BRIDGE_ENABLE' ) ) {
 	define( 'CHINVAT_BRIDGE_ENABLE', false );
 }
 
+require_once __DIR__ . '/includes/settings.php';
 require_once __DIR__ . '/includes/security.php';
 require_once __DIR__ . '/includes/abilities.php';
 require_once __DIR__ . '/includes/rest-info.php';

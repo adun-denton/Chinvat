@@ -51,6 +51,14 @@ function chinvat_bridge_info_response(): WP_REST_Response {
 		'abilities_api'  => function_exists( 'wp_register_ability' ),
 		'mcp_adapter'    => class_exists( '\\WP\\MCP\\Core\\McpAdapter' ) || class_exists( 'McpAdapter' ),
 		'writes_enabled' => chinvat_bridge_writes_enabled(),
+		'developer_mode' => function_exists( 'chinvat_bridge_dev_mode' ) ? chinvat_bridge_dev_mode() : false,
+		'toggles'        => array(
+			'theme_write'          => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'theme_write' ),
+			'options_update'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'options_update' ),
+			'plugins_toggle'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'plugins_toggle' ),
+			'relax_option_denylist' => function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_option_denylist' ),
+			'relax_backup'         => function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_backup' ),
+		),
 		'theme'          => array(
 			'stylesheet' => $stylesheet,
 			'template'   => $template,

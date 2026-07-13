@@ -12,13 +12,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * True only when the site owner has opted in via wp-config.php AND file
- * editing is not disabled by DISALLOW_FILE_EDIT.
+ * True only when Developer Mode is enabled (via the settings page or the
+ * CHINVAT_BRIDGE_ENABLE back-compat constant) AND file editing is not disabled
+ * by DISALLOW_FILE_EDIT. Falls back to the constant if the settings module is
+ * not loaded.
  *
  * @return bool
  */
 function chinvat_bridge_writes_enabled(): bool {
-	if ( ! CHINVAT_BRIDGE_ENABLE ) {
+	$dev = function_exists( 'chinvat_bridge_dev_mode' )
+		? chinvat_bridge_dev_mode()
+		: ( defined( 'CHINVAT_BRIDGE_ENABLE' ) && CHINVAT_BRIDGE_ENABLE );
+	if ( ! $dev ) {
 		return false;
 	}
 	if ( defined( 'DISALLOW_FILE_EDIT' ) && DISALLOW_FILE_EDIT ) {
@@ -71,6 +76,17 @@ function chinvat_bridge_guard_option( string $key ) {
 	$key = trim( $key );
 	if ( '' === $key || ! preg_match( '/^[A-Za-z0-9_\-]+$/', $key ) ) {
 		return new WP_Error( 'chinvat_invalid_option', __( 'Invalid option key.', 'chinvat-bridge' ) );
+	}
+
+	// The plugin's own settings option is ALWAYS blocked, even in expert mode,
+	// so the bridge can never flip its own Developer Mode / capability toggles.
+	if ( 'chinvat_bridge_settings' === $key ) {
+		return new WP_Error( 'chinvat_forbidden_option', __( 'This option is not accessible.', 'chinvat-bridge' ) );
+	}
+
+	// Expert override: relax the denylist for everything except the hard block above.
+	if ( function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_option_denylist' ) ) {
+		return true;
 	}
 
 	$core_denied = chinvat_bridge_core_option_denylist();
@@ -308,6 +324,10 @@ function chinvat_bridge_php_lint( string $abs_path, string $content ) {
  * @return string|WP_Error Backup path, or '' if there was no prior file.
  */
 function chinvat_bridge_backup( string $abs_path ) {
+	// Expert override: skip backups entirely if the operator disabled them.
+	if ( function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_backup' ) ) {
+		return '';
+	}
 	if ( ! is_file( $abs_path ) || is_link( $abs_path ) ) {
 		return '';
 	}

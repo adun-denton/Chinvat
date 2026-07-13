@@ -40,12 +40,15 @@ function chinvat_bridge_register_categories(): void {
  * @param bool   $is_write Whether this is a write/dangerous op.
  * @return true|WP_Error
  */
-function chinvat_bridge_permit( string $cap, bool $is_write ) {
+function chinvat_bridge_permit( string $cap, bool $is_write, string $cap_key = '' ) {
 	if ( ! current_user_can( $cap ) ) {
 		return new WP_Error( 'chinvat_forbidden', __( 'Insufficient capability.', 'chinvat-bridge' ) );
 	}
 	if ( $is_write && ! chinvat_bridge_writes_enabled() ) {
-		return new WP_Error( 'chinvat_writes_disabled', __( 'Writes are disabled. Set CHINVAT_BRIDGE_ENABLE in wp-config.php.', 'chinvat-bridge' ) );
+		return new WP_Error( 'chinvat_writes_disabled', __( 'Writes are disabled. Enable Developer Mode in the Chinvat Bridge settings.', 'chinvat-bridge' ) );
+	}
+	if ( $is_write && '' !== $cap_key && function_exists( 'chinvat_bridge_cap_enabled' ) && ! chinvat_bridge_cap_enabled( $cap_key ) ) {
+		return new WP_Error( 'chinvat_cap_disabled', __( 'This capability is switched off in the Chinvat Bridge settings.', 'chinvat-bridge' ) );
 	}
 	return true;
 }
@@ -116,7 +119,7 @@ function chinvat_bridge_register_abilities(): void {
 				'properties' => array( 'key' => array( 'type' => 'string' ), 'updated' => array( 'type' => 'boolean' ) ),
 			),
 			'permission_callback' => static function ( $input ) {
-				$g = chinvat_bridge_permit( 'manage_options', true );
+				$g = chinvat_bridge_permit( 'manage_options', true, 'options_update' );
 				if ( is_wp_error( $g ) ) {
 					return $g;
 				}
@@ -236,7 +239,7 @@ function chinvat_bridge_register_abilities(): void {
 				),
 			),
 			'permission_callback' => static function () {
-				return chinvat_bridge_permit( 'edit_themes', true );
+				return chinvat_bridge_permit( 'edit_themes', true, 'theme_write' );
 			},
 			'execute_callback'    => static function ( $input ) {
 				$content = (string) $input['content'];
@@ -419,7 +422,7 @@ function chinvat_bridge_register_abilities(): void {
 			),
 			'output_schema'       => array( 'type' => 'object', 'properties' => array( 'file' => array( 'type' => 'string' ), 'active' => array( 'type' => 'boolean' ) ) ),
 			'permission_callback' => static function () {
-				return chinvat_bridge_permit( 'activate_plugins', true );
+				return chinvat_bridge_permit( 'activate_plugins', true, 'plugins_toggle' );
 			},
 			'execute_callback'    => static function ( $input ) {
 				if ( ! function_exists( 'activate_plugin' ) ) {
