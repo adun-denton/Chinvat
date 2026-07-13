@@ -169,6 +169,8 @@ Op sketch: `document_info`, `object_info`, `viewport_capture` (`read`); `create_
 
 **Config schema:** `orca_path` (pinned executable), `profiles_dir`, `project_dir`, `output_dir`, `max_slice_seconds` (kill timer).
 
+**Field notes (live-validated 2026-07-13, Anycubic Slicer Next 1.4.1.2 = the actual installed Orca-lineage slicer):** the fork keeps the full Orca CLI dialect. Quirks the adapter now absorbs: raw model input requires `--slice 0` + `--arrange 1 --ensure-on-bed` (plate numbers only exist for 3mf projects, and un-arranged objects fail with "Nothing to be sliced"); `--export-3mf` must be a bare filename because the CLI prefixes `--outputdir` itself (absolute paths concatenate into garbage); the CLI helpfully drops a bare `plate_N.gcode` next to the 3mf (no unzip needed for future `analyze_gcode`); slicing is mesh-sensitive — degenerate triangles (e.g. float32 precision loss from exporting meter-scale geometry then upscaling) die in Voronoi/thin-wall processing with cryptic "Errors". Related Blender-side trap: STL is unitless and slicers read units as mm, so meter-scale Blender exports need `global_scale=1000` or a post-scale.
+
 **Deferred with print control (not designed now):** printer backends, heating/homing approval flows, printer-state preconditions. When that day comes, `start_print` is `dangerous` + toggle, per the established pattern.
 
 ## 6. Security posture
@@ -205,6 +207,11 @@ No app process lifecycle management (launching Blender/GIMP — user opens the a
 4. WP items — **paused** (see §8).
 5. Orca — **second in build order**, prioritized over Rhino.
 6. `profile_patch` allowlist — **broad** (see §5a): full tuning surface with bounds; the model compensates for printer model, object, and objective.
+
+## Backlog (operator, not scheduled)
+
+- Dashboard UX: newly loaded modules are easy to miss as disabled — either highlight the Enable control for new/never-enabled modules or make new modules enabled by default. (Hit during blender 0.1.0 live validation, 2026-07-13.)
+- Session-spawned stdio hubs go stale after a rebuild: the dashboard hub restart doesn't touch them, and 'unknown module' is the only symptom. Consider a version/build stamp in workers_list or an MCP-visible staleness warning. (Workaround found: detached delayed kill of the stale PIDs; the client respawns on next call.)
 
 ## 10. Execution plan — token/cost efficiency
 
