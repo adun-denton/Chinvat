@@ -47,7 +47,7 @@ WordPress has two complementary surfaces:
 1. **Core REST, shipped in the hub:** `hub/src/adapters/wordpress.ts` calls `/wp-json/wp/v2` for posts, pages, media, and taxonomy. These operations are available through Chinvat's normal jobs and policy engine.
 2. **WordPress Abilities, shipped in the companion plugin:** `wp-plugin/chinvat-bridge/` registers nine `chinvat-bridge/*` abilities for options, active-theme files, per-post RankMath metadata, and plugin activation/deactivation. The WordPress Abilities API + MCP Adapter can expose them directly. The plugin also provides authenticated `GET /wp-json/chinvat-bridge/v1/info` for version/capability discovery.
 
-The TypeScript adapter does **not yet** probe the handshake or invoke these abilities. Its planned extension contract is:
+The TypeScript adapter ships ten static `bridge_*` operations: `bridge_info`, `bridge_option_get`, `bridge_option_update`, `bridge_theme_list`, `bridge_theme_read`, `bridge_theme_write`, `bridge_rankmath_get`, `bridge_rankmath_update`, `bridge_plugins_list`, and `bridge_plugins_toggle`. `bridge_info` calls the handshake; the other nine map to the known abilities using this contract:
 
 ```text
 read:          GET  /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
@@ -55,7 +55,9 @@ act/dangerous: POST /wp-json/wp-abilities/v1/abilities/{name}/run
                {"input":{"key":"value"}}
 ```
 
-The extension must translate each ability's `read` / `act` / `dangerous` risk into Chinvat policy before invocation and preserve application-password authentication. `theme-write` remains remote code execution by design; path confinement, atomic writes, PHP linting, backups, capability checks, Developer Mode, and per-capability toggles are layered mitigations rather than a security boundary.
+These operations preserve each ability's `read` / `act` / `dangerous` risk and therefore pass through normal Chinvat jobs/policy before invocation. The adapter uses application-password authentication. Its `health()` first authenticates against core REST, then probes the handshake best-effort and appends the Bridge version/write state when detected; Bridge absence never fails core WordPress health. The operation list is fixed in the adapter rather than dynamically generated from handshake results.
+
+`theme-write` remains remote code execution by design; path confinement, atomic writes, PHP linting, backups, capability checks, Developer Mode, and per-capability toggles are layered mitigations rather than a security boundary.
 
 ## Job lifecycle
 

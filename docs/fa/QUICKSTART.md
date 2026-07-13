@@ -60,7 +60,7 @@ Inference مدل‌ها `read` است و در هیچ Tier منتظر Approval ن
 
 ## WordPress پیشرفته (اختیاری)
 
-ماژول `wordpress` بدون Plugin اضافی، Post، Page، Media و Taxonomy را از Core REST مدیریت می‌کند. برای Options، فایل‌های Active theme، RankMath و فعال/غیرفعال‌کردن Pluginها، [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) را جداگانه نصب کنید. ماژول TypeScript هنوز Abilityهای Bridge را فراخوانی نمی‌کند؛ این اتصال در Roadmap است.
+ماژول `wordpress` بدون Plugin اضافی، Post، Page، Media و Taxonomy را از Core REST مدیریت می‌کند. برای Options، فایل‌های Active theme، RankMath و فعال/غیرفعال‌کردن Pluginها، [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) را جداگانه نصب کنید. ماژول TypeScript اکنون ده Operation ثابت `bridge_*` را اجرا می‌کند؛ `bridge_info` وضعیت Bridge را می‌خواند و بقیه از Abilities API استفاده می‌کنند.
 
 ## ابزارهای MCP
 

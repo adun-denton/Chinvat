@@ -81,15 +81,17 @@ GET /wp-json/chinvat-bridge/v1/info
 
 The response includes `version`, `schema_version`, `abilities_api`, `mcp_adapter`, `writes_enabled`, `developer_mode`, individual `toggles`, active-theme confinement details, RankMath status, and the nine capability/risk records.
 
-## Chinvat adapter status
+## Chinvat adapter integration
 
-The TypeScript `wordpress` adapter does **not yet** call the handshake or the abilities. Today, the WordPress Abilities API + MCP Adapter can expose them directly. The planned hub adapter extension will use the verified contract below and route each call through Chinvat jobs and policy:
+The TypeScript `wordpress` adapter now calls the Bridge through normal Chinvat jobs and policy. It exposes ten fixed operations: `bridge_info`, `bridge_option_get`, `bridge_option_update`, `bridge_theme_list`, `bridge_theme_read`, `bridge_theme_write`, `bridge_rankmath_get`, `bridge_rankmath_update`, `bridge_plugins_list`, and `bridge_plugins_toggle`. `bridge_info` returns the handshake; the other nine call the corresponding known ability with the contract below:
 
 ```text
 read:          GET  /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
 act/dangerous: POST /wp-json/wp-abilities/v1/abilities/{name}/run
                {"input":{"key":"value"}}
 ```
+
+The adapter preserves `read` / `act` / `dangerous` risk, uses the configured application password, and reports a detected Bridge version/write state in `health()`. Detection is best-effort: an absent Bridge does not fail core WordPress health. The operation list is static; the adapter does not dynamically expose arbitrary abilities returned by the handshake.
 
 Remaining planned slices include child-theme scaffolding, mirror-on-write to the site's GitHub repository, separately gated `file-write` and `wp-cli`, RankMath sitewide operations, and plugin install/update/delete.
 

@@ -12,11 +12,13 @@
 
 ماژول داخلی `wordpress` از Core REST برای Post، Page، Media و Taxonomy استفاده می‌کند. افزونهٔ اختیاری [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) نسخهٔ `0.2.0` نه Ability دیگر ارائه می‌کند: `chinvat-bridge/options-get`، `chinvat-bridge/options-update`، `chinvat-bridge/theme-list`، `chinvat-bridge/theme-read`، `chinvat-bridge/theme-write`، `chinvat-bridge/rankmath-get`، `chinvat-bridge/rankmath-update`، `chinvat-bridge/plugins-list` و `chinvat-bridge/plugins-toggle`. Risk آن‌ها به `read`، `act` و `dangerous` در Policy چینوات نگاشت می‌شود. Handshake احرازهویت‌شدهٔ افزونه `GET /wp-json/chinvat-bridge/v1/info` است.
 
-در وضعیت فعلی، ماژول TypeScript `wordpress` نه Handshake را بررسی می‌کند و نه این Abilityها را اجرا می‌کند. WordPress Abilities API + MCP Adapter می‌تواند آن‌ها را مستقیم عرضه کند. Extension آیندهٔ Adapter برای Read از `GET /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value` و برای Act/Dangerous از `POST .../run` با Body زیر استفاده خواهد کرد:
+ماژول TypeScript `wordpress` اکنون ده Operation ثابت ارائه می‌کند: `bridge_info`، `bridge_option_get`، `bridge_option_update`، `bridge_theme_list`، `bridge_theme_read`، `bridge_theme_write`، `bridge_rankmath_get`، `bridge_rankmath_update`، `bridge_plugins_list` و `bridge_plugins_toggle`. `bridge_info` نتیجهٔ Handshake را برمی‌گرداند؛ Operationهای دیگر برای Read از `GET /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value` و برای Act/Dangerous از `POST .../run` با Body زیر استفاده می‌کنند:
 
 ```json
 {"input":{"key":"value"}}
 ```
+
+این Operationها از Job و Policy معمول چینوات عبور می‌کنند و Risk ثابت `read`، `act` یا `dangerous` خود را حفظ می‌کنند. `health()` وجود Bridge را Best-effort بررسی و در صورت تشخیص، Version و وضعیت Write را اضافه می‌کند؛ نبود Bridge باعث Fail شدن Health مربوط به Core REST نمی‌شود. فهرست `bridge_*` ثابت است و Adapter هر Ability دلخواه را به‌صورت Dynamic کشف نمی‌کند.
 
 Writeها بدون **Developer Mode** در صفحهٔ Settings افزونه (یا Constant سازگار با نسخهٔ قبل، `CHINVAT_BRIDGE_ENABLE`) غیرفعال‌اند. `theme-write`، `options-update` و `plugins-toggle` Toggle جداگانه دارند و پیش‌فرض همه Off است.
 

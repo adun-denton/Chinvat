@@ -30,6 +30,6 @@
 - `chinvat_writes_disabled`: **Developer Mode** خاموش است یا `DISALLOW_FILE_EDIT` فعال است.
 - `chinvat_cap_disabled`: Toggle مربوط به آن Write خاموش است.
 - `chinvat_no_lint` یا `chinvat_lint_failed`: `theme-write` برای PHP بدون اجرای موفق `php -l` Fail closed می‌شود.
-- نبودن Abilityها: WordPress Abilities API را بررسی کنید؛ برای عرضه از طریق MCP، MCP Adapter نیز لازم است.
+- نبودن Abilityها: WordPress Abilities API را بررسی کنید. Operationهای `bridge_*` به MCP Adapter نیاز ندارند؛ MCP Adapter فقط برای عرضهٔ مستقیم MCP از خود WordPress است.
 
-وجود Handshake به معنی پشتیبانی ماژول TypeScript `wordpress` از Abilityها نیست؛ این Extension هنوز در Roadmap است.
+ماژول TypeScript `wordpress` اکنون Abilityهای شناخته‌شده را با Operationهای ثابت `bridge_*` اجرا می‌کند. اگر Core REST سالم است ولی Bridge شناسایی نمی‌شود، `bridge_info` را اجرا کنید؛ `health()` نبود Bridge را نادیده می‌گیرد تا قابلیت‌های اصلی WordPress همچنان سالم گزارش شوند.

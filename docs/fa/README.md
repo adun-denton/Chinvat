@@ -13,6 +13,6 @@
 3. [پیکربندی سرویس‌ها](INTEGRATIONS.md)
 4. [رفع خطا](TROUBLESHOOTING.md)
 
-برای مدیریت پیشرفتهٔ WordPress، افزونهٔ اختیاری [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) امکانات Options، فایل‌های Theme، RankMath و Plugin management را اضافه می‌کند. اتصال این Abilityها به ماژول TypeScript `wordpress` هنوز در Roadmap است؛ توضیح و هشدارهای امنیتی در [پیکربندی سرویس‌ها](INTEGRATIONS.md#wordpress-و-chinvat-wp-bridge) آمده است.
+برای مدیریت پیشرفتهٔ WordPress، افزونهٔ اختیاری [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) امکانات Options، فایل‌های Theme، RankMath و Plugin management را اضافه می‌کند. ماژول TypeScript `wordpress` اکنون ده Operation ثابت `bridge_*` را از مسیر Job و Policy چینوات اجرا می‌کند؛ توضیح و هشدارهای امنیتی در [پیکربندی سرویس‌ها](INTEGRATIONS.md#wordpress-و-chinvat-wp-bridge) آمده است.
 
 نام فیلدهای UI، نام ماژول‌ها و Operationها، Commandها، URLها و Code blockها در این راهنما عمداً به English و عیناً مطابق برنامه نگه داشته شده‌اند.
