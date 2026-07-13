@@ -13,6 +13,6 @@
 3. [پیکربندی سرویس‌ها](INTEGRATIONS.md)
 4. [رفع خطا](TROUBLESHOOTING.md)
 
-برای مدیریت پیشرفتهٔ WordPress، افزونهٔ اختیاری [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) نسخهٔ `0.3.0` امکانات Options، فایل‌های Theme، RankMath، Plugin management و ساخت Child theme سازگار با Block را اضافه می‌کند. ماژول TypeScript `wordpress` اکنون یازده Operation ثابت `bridge_*` را از مسیر Job و Policy چینوات اجرا می‌کند؛ توضیح و هشدارهای امنیتی در [پیکربندی سرویس‌ها](INTEGRATIONS.md#wordpress-و-chinvat-wp-bridge) آمده است.
+برای مدیریت پیشرفتهٔ WordPress، افزونهٔ اختیاری [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) نسخهٔ `0.3.1` امکانات Options، فایل‌های Theme، RankMath، Plugin management و ساخت Child theme سازگار با Block را اضافه می‌کند. Scaffold اکنون یک `functions.php` مطمئن و ساخته‌شده توسط خود افزونه نیز ایجاد می‌کند تا `style.css` مربوط به Child theme بارگذاری شود. ماژول TypeScript `wordpress` یازده Operation ثابت `bridge_*` را از مسیر Job و Policy چینوات اجرا می‌کند؛ توضیح و هشدارهای امنیتی در [پیکربندی سرویس‌ها](INTEGRATIONS.md#wordpress-و-chinvat-wp-bridge) آمده است.
 
 نام فیلدهای UI، نام ماژول‌ها و Operationها، Commandها، URLها و Code blockها در این راهنما عمداً به English و عیناً مطابق برنامه نگه داشته شده‌اند.

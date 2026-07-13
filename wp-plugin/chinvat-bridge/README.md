@@ -1,6 +1,6 @@
 # Chinvat WP Bridge
 
-Version 0.3.0 · MIT
+Version 0.3.1 · MIT
 
 Companion WordPress plugin for the [Chinvat](https://github.com/adun-denton/Chinvat) MCP labor hub. The built-in `wordpress` adapter covers core REST operations for posts, pages, media, and taxonomy; this plugin adds guarded option access, active-theme file I/O, block-aware child-theme scaffolding, per-post RankMath fields, and installed-plugin activation/deactivation.
 
@@ -29,10 +29,11 @@ The risk tiers correspond to Chinvat policy: `read` runs at every tier, `act` an
 
 - `style.css` with the required `Template:` header;
 - a minimal `theme.json`;
+- a trusted plugin-authored `functions.php` that enqueues `get_stylesheet_uri()` on `wp_enqueue_scripts`;
 - copies of `parts/header.html` and `parts/footer.html` when the parent supplies them;
 - an empty `templates/` directory for block-template overrides.
 
-Inputs are `slug` (default `{parent}-child`), `name`, and `activate` (default `true`). Activation uses `switch_theme`. The result is a block-aware starting point and update-resistant target for `theme-write`; it is not a full clone of the parent theme. The ability and adapter operation `bridge_theme_scaffold_child` are `dangerous`, so Chinvat pauses them for human approval at the `approve` tier.
+Block themes do not automatically load a child `style.css`, so the generated `functions.php` supplies that loader. Its contents are static plugin-owned code, not agent input, and the scaffold writes it through its confined child writer rather than the `theme-write` PHP lint path. Inputs are `slug` (default `{parent}-child`), `name`, and `activate` (default `true`). Activation uses `switch_theme`. The result is a block-aware starting point and update-resistant target for `theme-write`; it is not a full clone of the parent theme. The ability and adapter operation `bridge_theme_scaffold_child` are `dangerous`, so Chinvat pauses them for human approval at the `approve` tier.
 
 ## Requirements and installation
 
@@ -63,6 +64,8 @@ define( 'CHINVAT_BRIDGE_ENABLE', true );
 ## Security model
 
 Authentication uses standard WordPress application passwords. Every ability also checks the WordPress capability shown above.
+
+`theme-write` refuses every agent-supplied `.php` write when PHP CLI linting through `proc_open` is unavailable or unsuccessful; non-PHP writes are unaffected. The scaffold-generated `functions.php` is static plugin-authored content and therefore does not use that agent-input lint path.
 
 **`theme-write` is remote code execution by design.** An agent able to write PHP into the active theme can execute code as the web-server user. Operational rules:
 
@@ -99,7 +102,7 @@ Authenticated administrators can call:
 GET /wp-json/chinvat-bridge/v1/info
 ```
 
-Version 0.3.0 returns `schema_version: 3`. The response includes `version`, `schema_version`, `abilities_api`, `mcp_adapter`, `writes_enabled`, `developer_mode`, individual `toggles` (including `child_scaffold`), active-theme confinement details, RankMath status, and ten capability/risk records.
+Version 0.3.1 returns `schema_version: 3`. The response includes `version`, `schema_version`, `abilities_api`, `mcp_adapter`, `writes_enabled`, `developer_mode`, individual `toggles` (including `child_scaffold`), active-theme confinement details, RankMath status, and ten capability/risk records.
 
 ## Chinvat adapter integration
 

@@ -29,7 +29,7 @@
 - پاسخ `404` برای `/wp-json/chinvat-bridge/v1/info`: افزونه Active نیست یا Route ثبت نشده است.
 - `chinvat_writes_disabled`: **Developer Mode** خاموش است یا `DISALLOW_FILE_EDIT` فعال است.
 - `chinvat_cap_disabled`: Toggle مربوط به آن Write خاموش است.
-- `chinvat_no_lint` یا `chinvat_lint_failed`: `theme-write` برای PHP بدون اجرای موفق `php -l` Fail closed می‌شود.
+- `chinvat_no_lint` یا `chinvat_lint_failed`: `theme-write` بدون PHP CLI یا `proc_open` قابل‌استفاده، همهٔ Writeهای `.php` از طرف Agent را Fail closed رد می‌کند؛ Write فایل‌های غیر-PHP ادامه دارد. `functions.php` ثابت و ساخته‌شده توسط `theme-scaffold-child` ورودی Agent نیست و از Writer محدودشدهٔ Scaffold استفاده می‌کند، بنابراین به این Gate وابسته نیست.
 - `chinvat_invalid_slug` یا `chinvat_path_escape`: `bridge_theme_scaffold_child` به‌دلیل Slug نامعتبر، Path موجود، Symlink یا خروج از Theme root متوقف شده است.
 - خطای Activation: `switch_themes`، معتبر بودن Child، نبود Theme error و نصب بودن Parent را بررسی کنید. ورودی `activate` به‌صورت پیش‌فرض `true` است.
 - نبودن Abilityها: WordPress Abilities API را بررسی کنید. Operationهای `bridge_*` به MCP Adapter نیاز ندارند؛ MCP Adapter فقط برای عرضهٔ مستقیم MCP از خود WordPress است.
