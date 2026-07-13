@@ -68,11 +68,14 @@ function confine(p: string, root: string, what: string): string {
   return abs;
 }
 
-/** The two profile roots: user presets and vendor (system) presets. */
+/** The two profile roots: user presets and vendor (system) presets.
+ *  `system` is the vendor PARENT dir — works for any Orca-lineage fork
+ *  (OrcaSlicer: many vendors; ASN: just Anycubic). rel_paths under system
+ *  therefore include the vendor segment: `<vendor>\<category>\<name>.json`. */
 function profileRoots(c: Cfg): Array<{ source: string; base: string }> {
   return [
     { source: 'user', base: path.join(c.dataDir, 'user', 'default') },
-    { source: 'system', base: path.join(c.dataDir, 'system', 'Anycubic') },
+    { source: 'system', base: path.join(c.dataDir, 'system') },
   ];
 }
 
@@ -92,9 +95,12 @@ const adapter: ChinvatAdapter = {
   capabilities: () => [
     {
       name: 'profiles_list',
-      description: 'List machine/process/filament profiles (user + vendor presets).',
+      description: 'List machine/process/filament profiles (user + vendor presets, any Orca-lineage fork). Capped at 300 rows; narrow with category/filter.',
       risk: 'read',
-      params: { category: { type: 'string', description: 'machine|process|filament (default all)' } },
+      params: {
+        category: { type: 'string', description: 'machine|process|filament (default all)' },
+        filter: { type: 'string', description: 'Case-insensitive substring on profile name' },
+      },
     },
     {
       name: 'profile_read',
@@ -124,17 +130,21 @@ const adapter: ChinvatAdapter = {
     const c = cfg(ctx);
     if (!fs.existsSync(c.exe)) return { ok: false, detail: `slicer exe not found: ${c.exe}` };
     if (!fs.existsSync(c.dataDir)) return { ok: false, detail: `slicer data dir not found: ${c.dataDir}` };
-    const counts = await Promise.all(
-      profileRoots(c).map(async ({ source, base }) => {
-        let n = 0;
-        for (const cat of CATEGORIES) {
-          const d = path.join(base, cat);
-          if (fs.existsSync(d)) n += (await fsp.readdir(d)).filter((f) => f.endsWith('.json')).length;
-        }
-        return `${source}:${n}`;
-      })
-    );
-    return { ok: true, detail: `${path.basename(c.exe)} · profiles ${counts.join(' ')}` };
+    const countIn = async (base: string, cats: readonly string[]) => {
+      let n = 0;
+      for (const cat of cats) {
+        const d = path.join(base, cat);
+        if (fs.existsSync(d)) n += (await fsp.readdir(d)).filter((f) => f.endsWith('.json')).length;
+      }
+      return n;
+    };
+    const userN = await countIn(path.join(c.dataDir, 'user', 'default'), CATEGORIES);
+    let sysN = 0;
+    const sysBase = path.join(c.dataDir, 'system');
+    if (fs.existsSync(sysBase))
+      for (const v of await fsp.readdir(sysBase, { withFileTypes: true }))
+        if (v.isDirectory()) sysN += await countIn(path.join(sysBase, v.name), CATEGORIES);
+    return { ok: true, detail: `${path.basename(c.exe)} · profiles user:${userN} system:${sysN}` };
   },
 
   async invoke(operation, args, ctx): Promise<InvokeResult> {
@@ -145,18 +155,39 @@ const adapter: ChinvatAdapter = {
         const want = typeof args.category === 'string' ? [args.category] : [...CATEGORIES];
         if (want.some((w) => !(CATEGORIES as readonly string[]).includes(w)))
           throw new AdapterError(`category must be one of ${CATEGORIES.join('|')}`);
+        const filter = typeof args.filter === 'string' ? args.filter.toLowerCase() : '';
         const out: Array<{ source: string; category: string; name: string; rel_path: string }> = [];
+        const collect = async (source: string, dir: string, cat: string, relBase: string) => {
+          if (!fs.existsSync(dir)) return;
+          for (const f of await fsp.readdir(dir)) {
+            if (!f.endsWith('.json')) continue;
+            const name = f.replace(/\.json$/, '');
+            if (filter && !name.toLowerCase().includes(filter)) continue;
+            out.push({ source, category: cat, name, rel_path: path.join(relBase, f) });
+          }
+        };
         for (const { source, base } of profileRoots(c)) {
-          for (const cat of want) {
-            const dir = path.join(base, cat);
-            if (!fs.existsSync(dir)) continue;
-            for (const f of await fsp.readdir(dir)) {
-              if (!f.endsWith('.json')) continue;
-              out.push({ source, category: cat, name: f.replace(/\.json$/, ''), rel_path: path.join(cat, f) });
+          if (source === 'user') {
+            for (const cat of want) await collect(source, path.join(base, cat), cat, cat);
+          } else {
+            // system = vendor parent: system\<vendor>\<category>\*.json (any Orca fork)
+            if (!fs.existsSync(base)) continue;
+            for (const vendor of await fsp.readdir(base, { withFileTypes: true })) {
+              if (!vendor.isDirectory()) continue;
+              for (const cat of want)
+                await collect(source, path.join(base, vendor.name, cat), cat, path.join(vendor.name, cat));
             }
           }
         }
-        return { output: { count: out.length, profiles: out } };
+        const LIMIT = 300;
+        return {
+          output: {
+            count: out.length,
+            truncated: out.length > LIMIT,
+            hint: out.length > LIMIT ? "use params 'category' and/or 'filter' (substring) to narrow" : undefined,
+            profiles: out.slice(0, LIMIT),
+          },
+        };
       }
 
       case 'profile_read': {
