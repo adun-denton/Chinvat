@@ -250,6 +250,28 @@ const adapter: ChinvatAdapter = {
         risk: 'act',
         params: { title: { type: 'string', required: true }, content: { type: 'string', required: true } },
       },
+      {
+        name: 'list_pages',
+        description: 'List pages.',
+        risk: 'read',
+        params: {
+          status: { type: 'string', description: 'publish|draft|any' },
+          search: { type: 'string' },
+          per_page: { type: 'number' },
+        },
+      },
+      {
+        name: 'publish_page',
+        description: 'Set a page live.',
+        risk: 'dangerous',
+        params: { id: { type: 'number', required: true } },
+      },
+      {
+        name: 'delete_page',
+        description: 'Trash a page.',
+        risk: 'dangerous',
+        params: { id: { type: 'number', required: true } },
+      },
     ];
     const bridge: OperationSpec[] = BRIDGE_OPS.map((b) => ({
       name: b.op,
@@ -419,6 +441,31 @@ const adapter: ChinvatAdapter = {
           signal: ctx.signal,
         });
         return { output: slim(r) };
+      }
+      case 'list_pages': {
+        const q = new URLSearchParams();
+        if (args.status) q.set('status', String(args.status));
+        if (args.search) q.set('search', String(args.search));
+        q.set('per_page', String(Math.min(Number(args.per_page ?? 10), 50)));
+        const r = await jsonFetch(`${base}/pages?${q}`, { headers, signal: ctx.signal });
+        return { output: (r as any[]).map(slim) };
+      }
+      case 'publish_page': {
+        const r = await jsonFetch(`${base}/pages/${Number(args.id)}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ status: 'publish' }),
+          signal: ctx.signal,
+        });
+        return { output: slim(r) };
+      }
+      case 'delete_page': {
+        const r = await jsonFetch(`${base}/pages/${Number(args.id)}`, {
+          method: 'DELETE',
+          headers,
+          signal: ctx.signal,
+        });
+        return { output: { id: r.id, status: r.status } };
       }
       default:
         unknownOp('wordpress', op);
