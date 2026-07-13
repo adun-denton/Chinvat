@@ -45,9 +45,9 @@ interface ChinvatAdapter {
 WordPress has two complementary surfaces:
 
 1. **Core REST, shipped in the hub:** `hub/src/adapters/wordpress.ts` calls `/wp-json/wp/v2` for posts, pages, media, and taxonomy. These operations are available through Chinvat's normal jobs and policy engine.
-2. **WordPress Abilities, shipped in the companion plugin:** `wp-plugin/chinvat-bridge/` registers nine `chinvat-bridge/*` abilities for options, active-theme files, per-post RankMath metadata, and plugin activation/deactivation. The WordPress Abilities API + MCP Adapter can expose them directly. The plugin also provides authenticated `GET /wp-json/chinvat-bridge/v1/info` for version/capability discovery.
+2. **WordPress Abilities, shipped in the companion plugin:** `wp-plugin/chinvat-bridge/` 0.3.0 registers ten `chinvat-bridge/*` abilities for options, active-theme files, per-post RankMath metadata, plugin activation/deactivation, and child-theme scaffolding. The WordPress Abilities API + MCP Adapter can expose them directly. The plugin also provides authenticated `GET /wp-json/chinvat-bridge/v1/info`; schema `3` reports the ten abilities and includes the `child_scaffold` toggle.
 
-The TypeScript adapter ships ten static `bridge_*` operations: `bridge_info`, `bridge_option_get`, `bridge_option_update`, `bridge_theme_list`, `bridge_theme_read`, `bridge_theme_write`, `bridge_rankmath_get`, `bridge_rankmath_update`, `bridge_plugins_list`, and `bridge_plugins_toggle`. `bridge_info` calls the handshake; the other nine map to the known abilities using this contract:
+The TypeScript adapter ships eleven static `bridge_*` operations: `bridge_info`, `bridge_option_get`, `bridge_option_update`, `bridge_theme_list`, `bridge_theme_read`, `bridge_theme_write`, `bridge_rankmath_get`, `bridge_rankmath_update`, `bridge_plugins_list`, `bridge_plugins_toggle`, and `bridge_theme_scaffold_child`. `bridge_info` calls the handshake; the other ten map to the known abilities using this contract:
 
 ```text
 read:          GET  /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
@@ -57,7 +57,7 @@ act/dangerous: POST /wp-json/wp-abilities/v1/abilities/{name}/run
 
 These operations preserve each ability's `read` / `act` / `dangerous` risk and therefore pass through normal Chinvat jobs/policy before invocation. The adapter uses application-password authentication. Its `health()` first authenticates against core REST, then probes the handshake best-effort and appends the Bridge version/write state when detected; Bridge absence never fails core WordPress health. The operation list is fixed in the adapter rather than dynamically generated from handshake results.
 
-`theme-write` remains remote code execution by design; path confinement, atomic writes, PHP linting, backups, capability checks, Developer Mode, and per-capability toggles are layered mitigations rather than a security boundary.
+`bridge_theme_scaffold_child` is `dangerous` and defaults to activation. It creates a fresh, block-aware child of `get_template()`—never a child of the active stylesheet—with `style.css`, minimal `theme.json`, copied header/footer parts when present, and a `templates/` directory. It is an update-resistant target for `theme-write`, not a full clone. `theme-write` remains remote code execution by design; path confinement, atomic writes, PHP linting, backups, capability checks, Developer Mode, and per-capability toggles are layered mitigations rather than a security boundary.
 
 ## Job lifecycle
 

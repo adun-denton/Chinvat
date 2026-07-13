@@ -92,9 +92,9 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 
 ### WordPress companion plugin
 
-The built-in `wordpress` module uses core WordPress REST for posts, pages, media, and taxonomy. The optional [Chinvat WP Bridge](wp-plugin/chinvat-bridge/README.md) adds nine WordPress Abilities for guarded option access, active-theme file I/O, per-post RankMath fields, and activating or deactivating installed plugins. Its authenticated handshake is `GET /wp-json/chinvat-bridge/v1/info`.
+The built-in `wordpress` module uses core WordPress REST for posts, pages, media, and taxonomy. The optional [Chinvat WP Bridge](wp-plugin/chinvat-bridge/README.md) 0.3.0 adds ten WordPress Abilities for guarded option access, active-theme file I/O, per-post RankMath fields, activating or deactivating installed plugins, and block-aware child-theme scaffolding. Its authenticated handshake is `GET /wp-json/chinvat-bridge/v1/info`.
 
-The TypeScript `wordpress` adapter now exposes ten fixed `bridge_*` operations: one handshake plus the nine Bridge abilities. Calls run through normal Chinvat jobs and policy; `health()` reports the detected Bridge version when present without failing when it is absent. This is a static operation list, not discovery of arbitrary abilities. `theme-write` is remote code execution by design: use an admin-only application password, keep MCP away from untrusted callers, and never give a write-enabled agent untrusted content. The safeguards reduce risk; they do not make arbitrary code execution safe.
+The TypeScript `wordpress` adapter exposes eleven fixed `bridge_*` operations: one handshake plus the ten Bridge abilities. Calls run through normal Chinvat jobs and policy; `health()` reports the detected Bridge version when present without failing when it is absent. This is a static operation list, not discovery of arbitrary abilities. Both `bridge_theme_write` and the auto-activating `bridge_theme_scaffold_child` are `dangerous`. Use an admin-only application password, keep MCP away from untrusted callers, and never give a write-enabled agent untrusted content. The safeguards reduce risk; they do not make arbitrary code execution safe.
 
 ## Policy: what crosses the bridge
 

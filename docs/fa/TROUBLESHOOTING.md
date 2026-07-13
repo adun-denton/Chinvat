@@ -30,6 +30,8 @@
 - `chinvat_writes_disabled`: **Developer Mode** خاموش است یا `DISALLOW_FILE_EDIT` فعال است.
 - `chinvat_cap_disabled`: Toggle مربوط به آن Write خاموش است.
 - `chinvat_no_lint` یا `chinvat_lint_failed`: `theme-write` برای PHP بدون اجرای موفق `php -l` Fail closed می‌شود.
+- `chinvat_invalid_slug` یا `chinvat_path_escape`: `bridge_theme_scaffold_child` به‌دلیل Slug نامعتبر، Path موجود، Symlink یا خروج از Theme root متوقف شده است.
+- خطای Activation: `switch_themes`، معتبر بودن Child، نبود Theme error و نصب بودن Parent را بررسی کنید. ورودی `activate` به‌صورت پیش‌فرض `true` است.
 - نبودن Abilityها: WordPress Abilities API را بررسی کنید. Operationهای `bridge_*` به MCP Adapter نیاز ندارند؛ MCP Adapter فقط برای عرضهٔ مستقیم MCP از خود WordPress است.
 
 ماژول TypeScript `wordpress` اکنون Abilityهای شناخته‌شده را با Operationهای ثابت `bridge_*` اجرا می‌کند. اگر Core REST سالم است ولی Bridge شناسایی نمی‌شود، `bridge_info` را اجرا کنید؛ `health()` نبود Bridge را نادیده می‌گیرد تا قابلیت‌های اصلی WordPress همچنان سالم گزارش شوند.
