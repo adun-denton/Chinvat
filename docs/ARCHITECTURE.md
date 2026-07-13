@@ -38,7 +38,24 @@ interface ChinvatAdapter {
 }
 ```
 
-`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Ten modules ship built-in (ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x); more load from `modules/` at boot.
+`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Eleven modules ship built-in (`ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`); more load from `modules/` at boot.
+
+## WordPress integration paths
+
+WordPress has two complementary surfaces:
+
+1. **Core REST, shipped in the hub:** `hub/src/adapters/wordpress.ts` calls `/wp-json/wp/v2` for posts, pages, media, and taxonomy. These operations are available through Chinvat's normal jobs and policy engine.
+2. **WordPress Abilities, shipped in the companion plugin:** `wp-plugin/chinvat-bridge/` registers nine `chinvat-bridge/*` abilities for options, active-theme files, per-post RankMath metadata, and plugin activation/deactivation. The WordPress Abilities API + MCP Adapter can expose them directly. The plugin also provides authenticated `GET /wp-json/chinvat-bridge/v1/info` for version/capability discovery.
+
+The TypeScript adapter does **not yet** probe the handshake or invoke these abilities. Its planned extension contract is:
+
+```text
+read:          GET  /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
+act/dangerous: POST /wp-json/wp-abilities/v1/abilities/{name}/run
+               {"input":{"key":"value"}}
+```
+
+The extension must translate each ability's `read` / `act` / `dangerous` risk into Chinvat policy before invocation and preserve application-password authentication. `theme-write` remains remote code execution by design; path confinement, atomic writes, PHP linting, backups, capability checks, Developer Mode, and per-capability toggles are layered mitigations rather than a security boundary.
 
 ## Job lifecycle
 

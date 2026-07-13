@@ -58,6 +58,10 @@ Use Chinvat's Ollama worker to summarize this text: ...
 
 Inference مدل‌ها `read` است و در هیچ Tier منتظر Approval نمی‌ماند. برای شروع، ماژول‌های System، Messaging و Publishing را روی `approve` نگه دارید.
 
+## WordPress پیشرفته (اختیاری)
+
+ماژول `wordpress` بدون Plugin اضافی، Post، Page، Media و Taxonomy را از Core REST مدیریت می‌کند. برای Options، فایل‌های Active theme، RankMath و فعال/غیرفعال‌کردن Pluginها، [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) را جداگانه نصب کنید. ماژول TypeScript هنوز Abilityهای Bridge را فراخوانی نمی‌کند؛ این اتصال در Roadmap است.
+
 ## ابزارهای MCP
 
 هفت ابزار دقیقاً عبارت‌اند از: `workers_list`، `capabilities_describe`، `tasks_submit`، `tasks_status`، `tasks_result`، `tasks_cancel` و `adapter_invoke`.

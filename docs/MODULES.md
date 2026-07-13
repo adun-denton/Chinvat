@@ -22,7 +22,13 @@ Runs PowerShell commands and file operations, fenced to **allowedRoot** (your ho
 Create a bot with [@BotFather](https://t.me/botfather) and paste the token. To get your `chatId`, send the bot a message then use the `get_updates` operation (Playground) and read the chat id. Enable **approvalButtons** to approve/deny jobs from your phone; enable **notifyJobs** for completion pings. Operations: `send_message`, `send_document`, `get_me`, `get_updates`.
 
 ## wordpress — publishing
-In WP Admin → **Users → Profile → Application Passwords**, create one for Chinvat. Enter site URL, username, and the application password. `create_post`/`create_page` make **drafts**; `publish_post` and `delete_post` are `dangerous`. Also: `upload_media`, `list_posts`, `list_categories`, `list_tags`, `site_info`.
+In WP Admin → **Users → Profile → Application Passwords**, create one for Chinvat. Enter site URL, username, and the application password. Operations: `site_info`, `list_posts`, `get_post`, `create_post`, `update_post`, `publish_post`, `delete_post`, `upload_media`, `list_categories`, `list_tags`, `create_page`. `create_post`/`create_page` make **drafts**; `publish_post` and `delete_post` are `dangerous`.
+
+The optional [Chinvat WP Bridge](../wp-plugin/chinvat-bridge/README.md) complements this core-REST adapter with nine WordPress Abilities for options, active-theme files, per-post RankMath data, and installed-plugin activation/deactivation. The plugin advertises its version, write gates, environment, and abilities through authenticated `GET /wp-json/chinvat-bridge/v1/info`.
+
+This is not yet an extension of the TypeScript adapter's operation list: the current adapter neither probes that handshake nor calls an ability. The planned extension will discover the bridge first, then invoke the Abilities API `run` endpoint as specified in [Architecture](ARCHITECTURE.md#wordpress-integration-paths). Until then, the WordPress Abilities API + MCP Adapter can expose the plugin abilities directly.
+
+Writes require **Developer Mode** (or the back-compatible `CHINVAT_BRIDGE_ENABLE` constant); `theme-write`, `options-update`, and `plugins-toggle` also have dedicated toggles. `theme-write` is **RCE by design**. Use a dedicated admin application password, do not expose MCP to untrusted callers, and do not feed a write-enabled agent untrusted content. Confinement, linting, backup, and policy gates are mitigations, not absolute security. See the plugin README for the full security model and its explicit Expert overrides.
 
 ## whatsapp — WhatsApp Business Cloud API
 Requires a Meta app with WhatsApp added: a permanent **access token** and a **phone number ID** (Meta for Developers → WhatsApp → API Setup). Recipients outside the 24-hour window need an approved **template** (`send_template`); inside it, `send_text` works. `phone_info` checks setup.

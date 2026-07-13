@@ -1,94 +1,97 @@
 # Chinvat WP Bridge
 
-Version 0.1.0 · MIT
+Version 0.2.0 · MIT
 
-Companion WordPress plugin for the [Chinvat](https://github.com/adun-denton/Chinvat) MCP labor hub. It gives an agent the extended admin access that core REST (and general-purpose MCP plugins) don't expose — theme file I/O, arbitrary options, RankMath SEO, and plugin management — behind capability checks, a schema-validated contract, and an explicit `wp-config.php` opt-in.
+Companion WordPress plugin for the [Chinvat](https://github.com/adun-denton/Chinvat) MCP labor hub. The built-in `wordpress` adapter covers core REST operations for posts, pages, media, and taxonomy; this plugin adds guarded option access, active-theme file I/O, per-post RankMath fields, and installed-plugin activation/deactivation.
 
-## Overview
+## What ships
 
-Each capability is registered as a WordPress **Ability** (`wp_register_ability`) with a JSON Schema, a per-operation `permission_callback`, and `readonly`/`destructive`/`idempotent` annotations. When the WordPress Abilities API and MCP Adapter are installed, those abilities are exposed as MCP tools automatically, with the annotations mapped to protocol risk hints. The plugin also registers a thin REST handshake route, `GET /chinvat-bridge/v1/info`, which the Chinvat adapter calls first to learn the plugin version and which capabilities are live — so adapter and plugin never drift.
+The plugin registers nine WordPress **Abilities** with JSON Schema, WordPress capability checks, and risk annotations. With the WordPress Abilities API and MCP Adapter installed, WordPress can expose them as MCP tools. An authenticated REST handshake at `GET /wp-json/chinvat-bridge/v1/info` reports the plugin/schema versions, environment, Developer Mode, write toggles, and available abilities.
 
-## Requirements
+| Ability | Risk | WordPress capability | Write toggle |
+|---|---|---|---|
+| `chinvat-bridge/options-get` | `read` | `manage_options` | — |
+| `chinvat-bridge/options-update` | `act` | `manage_options` | **Options Update** |
+| `chinvat-bridge/theme-list` | `read` | `edit_themes` | — |
+| `chinvat-bridge/theme-read` | `read` | `edit_themes` | — |
+| `chinvat-bridge/theme-write` | `dangerous` | `edit_themes` | **Theme Write** |
+| `chinvat-bridge/rankmath-get` | `read` | `edit_posts` + access to the post | — |
+| `chinvat-bridge/rankmath-update` | `act` | `edit_posts` + access to the post | Developer Mode |
+| `chinvat-bridge/plugins-list` | `read` | `activate_plugins` | — |
+| `chinvat-bridge/plugins-toggle` | `act` | `activate_plugins` | **Plugins Toggle** |
+
+The risk tiers correspond to Chinvat policy: `read` runs at every tier, `act` and `dangerous` pause at `approve`, and `observe` rejects writes.
+
+## Requirements and installation
 
 - WordPress 6.4+
-- PHP 7.4+ (PHP CLI reachable via `proc_open` for the theme-write lint gate)
-- Optional: the WordPress Abilities API + MCP Adapter plugins — without them the plugin still serves the REST handshake and the Chinvat adapter falls back accordingly
-- Optional: RankMath, for the two `rankmath-*` abilities
+- PHP 7.4+
+- PHP CLI reachable through `proc_open` for the `theme-write` PHP lint gate
+- WordPress Abilities API to register/expose the abilities
+- MCP Adapter when WordPress should expose the abilities through MCP
+- RankMath only for `rankmath-get` and `rankmath-update`
 
-## Installation
+Install:
 
-1. Copy the `chinvat-bridge` folder to `wp-content/plugins/`.
-2. Activate it from the Plugins screen.
-3. Create an application password (Users → Profile → Application Passwords) for the account the hub will authenticate as.
-4. To enable any write, add the opt-in described below to `wp-config.php`.
+1. Copy `chinvat-bridge/` to `wp-content/plugins/` and activate **Chinvat WP Bridge**.
+2. Install/activate the WordPress Abilities API and, for direct MCP exposure, MCP Adapter.
+3. Create a dedicated application password for an administrator account at **Users → Profile → Application Passwords**.
+4. Keep **Developer Mode** and every write toggle off until the exact workflow has been reviewed.
 
-## The kill switch
+## Developer Mode and write gates
 
-Every write is inert until the site owner adds, to `wp-config.php`:
+All writes are inert unless **Settings → Chinvat Bridge → Developer Mode** is enabled. The back-compatible `wp-config.php` constant below also forces Developer Mode on:
 
 ```php
 define( 'CHINVAT_BRIDGE_ENABLE', true );
 ```
 
-Without it, `read`-tier abilities still run (subject to their capability check) but every `act`/`dangerous` operation returns `chinvat_writes_disabled`. The plugin also honors `DISALLOW_FILE_EDIT`: if that is true, theme writes are refused regardless. Remove the constant (or set it `false`) to instantly cut all write access without deactivating the plugin.
+`theme-write`, `options-update`, and `plugins-toggle` each require their own toggle as well. Every toggle defaults off. `rankmath-update` requires Developer Mode but has no separate v0.2.0 toggle. `DISALLOW_FILE_EDIT` disables all bridge writes, including non-file writes, in the current implementation.
 
-## Capabilities
+## Security model
 
-Risk tiers map to Chinvat policy (`read` runs at every tier; `act` pauses at the approve tier; `dangerous` pauses at approve and is logged at autonomous).
+Authentication uses standard WordPress application passwords. Every ability also checks the WordPress capability shown above.
 
-| Ability | Risk | Capability | Notes |
-|---|---|---|---|
-| `chinvat-bridge/options-get` | read | `manage_options` | denylist-guarded (auth keys/salts/secrets blocked) |
-| `chinvat-bridge/options-update` | act | `manage_options` | denylist-guarded |
-| `chinvat-bridge/theme-list` | read | `edit_themes` | active (child) theme only |
-| `chinvat-bridge/theme-read` | read | `edit_themes` | path-allowlisted |
-| `chinvat-bridge/theme-write` | **dangerous** | `edit_themes` | lint + backup + allowlist (see below) |
-| `chinvat-bridge/rankmath-get` | read | `edit_posts` | per-post; requires RankMath |
-| `chinvat-bridge/rankmath-update` | act | `edit_posts` | per-post; requires RankMath |
-| `chinvat-bridge/plugins-list` | read | `activate_plugins` | |
-| `chinvat-bridge/plugins-toggle` | act | `activate_plugins` | activate / deactivate |
+**`theme-write` is remote code execution by design.** An agent able to write PHP into the active theme can execute code as the web-server user. Operational rules:
 
-## Security notes
+- use a dedicated, admin-only application password;
+- do not expose the MCP endpoint to untrusted callers;
+- do not feed untrusted content to an agent with any write ability enabled;
+- disable Developer Mode immediately after the maintenance window.
 
-Authentication is standard WordPress REST auth via **application passwords** — no custom token scheme. Every ability runs its own `permission_callback` (the capability column above); a failure returns a generic error so it doesn't leak which check failed. Sensitive argument keys are redacted from logs.
+The v0.1.2/v0.2.0 hardening, informed by two adversarial reviews, adds layered mitigations:
 
-**Writing a file into the theme is remote code execution by design.** `theme-write` is therefore wrapped in layered safeguards, all required:
+- read/write paths are confined to the active stylesheet theme; traversal and symlink escape are rejected;
+- writes use a temporary file and atomic rename;
+- PHP content must pass `php -l`; missing lint support fails closed;
+- existing files are backed up outside the theme under protected `wp-content/chinvat-bak/` before replacement;
+- the default option denylist blocks auth keys/salts, credentials, roles, active plugins, site URLs, secret-like names, and related protected options;
+- `chinvat_bridge_settings` is always denied, so an ability cannot enable its own Developer Mode or toggles;
+- the bridge and protected security plugins cannot be deactivated through `plugins-toggle`.
 
-1. `edit_themes` capability, and `DISALLOW_FILE_EDIT` honored.
-2. Path confined to the active child theme: the target is resolved with `realpath` and rejected unless it sits strictly inside `get_stylesheet_directory()` — no `..`, no symlink escape, no parent-theme writes.
-3. Extension allowlist (`php, css, js, json, html, twig, txt, md`), filterable.
-4. For `.php`, the content is written to a temp file and checked with `php -l` before commit; a parse error aborts the write. If PHP can't be invoked, the write is refused rather than risked.
-5. The prior version of the file is copied to a timestamped `.chinvat-bak/` sibling before overwrite, and the backup path is returned.
-6. Every write is auditable via the Abilities API `wp_after_execute_ability` hook.
+These are mitigations, not absolute security. Version 0.2.0 also exposes explicit **Expert: Relax Option Denylist** and **Expert: Relax Backup** settings. They are off by default and materially weaken protection; the bridge's own settings option remains blocked even when the denylist override is enabled.
 
-Consider whether WP-CLI over SSH already covers your theme-editing needs with no new web-facing surface before enabling this route.
+## Handshake
 
-## Handshake response
+Authenticated administrators can call:
 
-`GET /chinvat-bridge/v1/info` (requires `manage_options`) returns:
-
-```json
-{
-  "plugin": "chinvat-bridge",
-  "version": "0.1.0",
-  "schema_version": 1,
-  "abilities_api": true,
-  "mcp_adapter": true,
-  "writes_enabled": false,
-  "theme": {
-    "stylesheet": "my-child-theme",
-    "template": "my-theme",
-    "is_child": true,
-    "allowed_root": "/var/www/wp-content/themes/my-child-theme",
-    "allowed_extensions": ["php", "css", "js", "json", "html", "twig", "txt", "md"]
-  },
-  "rankmath": { "active": true, "version": "1.0.0" },
-  "capabilities": [
-    { "name": "chinvat-bridge/options-get", "risk": "read", "cap": "manage_options" },
-    { "name": "chinvat-bridge/theme-write", "risk": "dangerous", "cap": "edit_themes" }
-  ]
-}
+```text
+GET /wp-json/chinvat-bridge/v1/info
 ```
+
+The response includes `version`, `schema_version`, `abilities_api`, `mcp_adapter`, `writes_enabled`, `developer_mode`, individual `toggles`, active-theme confinement details, RankMath status, and the nine capability/risk records.
+
+## Chinvat adapter status
+
+The TypeScript `wordpress` adapter does **not yet** call the handshake or the abilities. Today, the WordPress Abilities API + MCP Adapter can expose them directly. The planned hub adapter extension will use the verified contract below and route each call through Chinvat jobs and policy:
+
+```text
+read:          GET  /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
+act/dangerous: POST /wp-json/wp-abilities/v1/abilities/{name}/run
+               {"input":{"key":"value"}}
+```
+
+Remaining planned slices include child-theme scaffolding, mirror-on-write to the site's GitHub repository, separately gated `file-write` and `wp-cli`, RankMath sitewide operations, and plugin install/update/delete.
 
 ## License
 

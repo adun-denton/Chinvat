@@ -8,6 +8,20 @@
 
 در **Modules** فیلدها را وارد، ماژول را Enable و Save کنید، **Test connection** را اجرا کنید و سپس یک Operation واقعی کم‌خطر را آزمایش کنید. Health سالم فقط Identity و Connectivity را ثابت می‌کند، نه همهٔ Permissionها، Productها، Creditها یا Access tierها.
 
+## WordPress و Chinvat WP Bridge
+
+ماژول داخلی `wordpress` از Core REST برای Post، Page، Media و Taxonomy استفاده می‌کند. افزونهٔ اختیاری [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) نسخهٔ `0.2.0` نه Ability دیگر ارائه می‌کند: `chinvat-bridge/options-get`، `chinvat-bridge/options-update`، `chinvat-bridge/theme-list`، `chinvat-bridge/theme-read`، `chinvat-bridge/theme-write`، `chinvat-bridge/rankmath-get`، `chinvat-bridge/rankmath-update`، `chinvat-bridge/plugins-list` و `chinvat-bridge/plugins-toggle`. Risk آن‌ها به `read`، `act` و `dangerous` در Policy چینوات نگاشت می‌شود. Handshake احرازهویت‌شدهٔ افزونه `GET /wp-json/chinvat-bridge/v1/info` است.
+
+در وضعیت فعلی، ماژول TypeScript `wordpress` نه Handshake را بررسی می‌کند و نه این Abilityها را اجرا می‌کند. WordPress Abilities API + MCP Adapter می‌تواند آن‌ها را مستقیم عرضه کند. Extension آیندهٔ Adapter برای Read از `GET /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value` و برای Act/Dangerous از `POST .../run` با Body زیر استفاده خواهد کرد:
+
+```json
+{"input":{"key":"value"}}
+```
+
+Writeها بدون **Developer Mode** در صفحهٔ Settings افزونه (یا Constant سازگار با نسخهٔ قبل، `CHINVAT_BRIDGE_ENABLE`) غیرفعال‌اند. `theme-write`، `options-update` و `plugins-toggle` Toggle جداگانه دارند و پیش‌فرض همه Off است.
+
+**هشدار صریح:** `theme-write` عمداً امکان Remote Code Execution می‌دهد. فقط از Application password مخصوص Admin استفاده کنید؛ MCP را در اختیار Caller نامطمئن قرار ندهید؛ Content نامطمئن را به Agent دارای Write access ندهید. Path/Symlink confinement به Active theme، Atomic rename، اجرای `php -l` پیش از PHP write، Backup محافظت‌شده زیر `wp-content/chinvat-bak/` و Option denylist ریسک را کاهش می‌دهند، اما امنیت مطلق ایجاد نمی‌کنند. نسخهٔ `0.2.0` همچنین Expert overrideهای بسیار پرخطر برای Relax کردن Denylist و غیرفعال‌کردن Backup دارد؛ Option خود افزونه حتی در Expert mode غیرقابل‌نوشتن می‌ماند.
+
 ## Telegram
 
 با `@BotFather` Bot بسازید و `botToken` را وارد کنید. به Bot پیام دهید، `get_updates` را اجرا و `chat_id` را در `chatId` ذخیره کنید. دریافت پیام‌های عادی Group نیازمند غیرفعال‌کردن Privacy Mode است.

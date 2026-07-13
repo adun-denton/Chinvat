@@ -37,6 +37,16 @@ npm start            # hub + dashboard on http://localhost:7777
 
 Or let a desktop agent do it — see [AGENTS.md](AGENTS.md).
 
+## Repository layout
+
+```text
+hub/src/                    hub, jobs, policy, MCP, API, and built-in adapters
+dashboard/src/              local React dashboard
+clients/                    coordinator configuration and Codex plugin
+wp-plugin/chinvat-bridge/   optional WordPress Abilities companion plugin
+docs/                       guides, architecture, modules, and roadmap
+```
+
 ## Connect a coordinator
 
 Start the hub, open the **Connect** tab, pick your client, and either copy the configuration or let Chinvat install it for you. Auto-install previews the exact change, backs up any existing file, writes only the `chinvat` entry (never touching your other servers), then re-tests the endpoint and reports success. Streamable HTTP is the default transport; stdio is the fallback.
@@ -79,6 +89,12 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `x` (Twitter) | token-config | OAuth 2.0 user token (`tweet.write`) |
 
 `openai-compatible` is one reusable worker for NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure, and any other OpenAI-compatible endpoint — point it at a `Base URL` with the provider’s `API key`. Provider-named instances are roadmap work, not shipped modules. New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
+
+### WordPress companion plugin
+
+The built-in `wordpress` module uses core WordPress REST for posts, pages, media, and taxonomy. The optional [Chinvat WP Bridge](wp-plugin/chinvat-bridge/README.md) adds nine WordPress Abilities for guarded option access, active-theme file I/O, per-post RankMath fields, and activating or deactivating installed plugins. Its authenticated handshake is `GET /wp-json/chinvat-bridge/v1/info`.
+
+The TypeScript `wordpress` adapter does **not yet invoke these abilities**; direct exposure through the WordPress Abilities API + MCP Adapter works today, while hub-side discovery and invocation are roadmap work. `theme-write` is remote code execution by design: use an admin-only application password, keep MCP away from untrusted callers, and never give a write-enabled agent untrusted content. The safeguards reduce risk; they do not make arbitrary code execution safe.
 
 ## Policy: what crosses the bridge
 

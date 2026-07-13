@@ -23,3 +23,13 @@
 3. یک درخواست حداقلی واقعی.
 4. وضعیت نهایی در **Jobs**.
 5. Scope، App Review، Credit، Access tier، Rate limit و Identifier در پنل Provider.
+
+## Chinvat WP Bridge
+
+- پاسخ `404` برای `/wp-json/chinvat-bridge/v1/info`: افزونه Active نیست یا Route ثبت نشده است.
+- `chinvat_writes_disabled`: **Developer Mode** خاموش است یا `DISALLOW_FILE_EDIT` فعال است.
+- `chinvat_cap_disabled`: Toggle مربوط به آن Write خاموش است.
+- `chinvat_no_lint` یا `chinvat_lint_failed`: `theme-write` برای PHP بدون اجرای موفق `php -l` Fail closed می‌شود.
+- نبودن Abilityها: WordPress Abilities API را بررسی کنید؛ برای عرضه از طریق MCP، MCP Adapter نیز لازم است.
+
+وجود Handshake به معنی پشتیبانی ماژول TypeScript `wordpress` از Abilityها نیست؛ این Extension هنوز در Roadmap است.
