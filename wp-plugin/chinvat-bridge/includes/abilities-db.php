@@ -332,7 +332,7 @@ function chinvat_bridge_register_db_abilities(): void {
 				);
 			},
 			'meta'                => array(
-				'annotations'  => array( 'readonly' => false, 'destructive' => true, 'idempotent' => true ),
+				'annotations'  => array( 'readonly' => false, 'destructive' => false, 'idempotent' => true ),
 				'show_in_rest' => true,
 			),
 		)
@@ -546,7 +546,7 @@ function chinvat_bridge_register_db_abilities(): void {
 				);
 			},
 			'meta'                => array(
-				'annotations'  => array( 'readonly' => false, 'destructive' => true, 'idempotent' => true ),
+				'annotations'  => array( 'readonly' => false, 'destructive' => false, 'idempotent' => true ),
 				'show_in_rest' => true,
 			),
 		)

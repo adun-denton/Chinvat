@@ -130,7 +130,7 @@ function chinvat_bridge_register_abilities(): void {
 				return array( 'key' => (string) $input['key'], 'updated' => (bool) $ok );
 			},
 			'meta'                => array(
-				'annotations'  => array( 'readonly' => false, 'destructive' => true, 'idempotent' => true ),
+				'annotations'  => array( 'readonly' => false, 'destructive' => false, 'idempotent' => true ),
 				'show_in_rest' => true,
 			),
 		)
@@ -262,7 +262,7 @@ function chinvat_bridge_register_abilities(): void {
 				return array( 'path' => (string) $input['path'], 'bytes' => (int) $bytes, 'backup' => (string) $backup );
 			},
 			'meta'                => array(
-				'annotations'  => array( 'readonly' => false, 'destructive' => true, 'idempotent' => false ),
+				'annotations'  => array( 'readonly' => false, 'destructive' => false, 'idempotent' => false ),
 				'show_in_rest' => true,
 			),
 		)

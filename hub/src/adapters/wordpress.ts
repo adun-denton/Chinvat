@@ -52,7 +52,6 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_option_update',
-    destructive: true,
     ability: 'chinvat-bridge/options-update',
     risk: 'act',
     description: 'Write a single wp_options value (denylist-guarded; needs options_update toggle).',
@@ -77,7 +76,6 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_theme_write',
-    destructive: true,
     ability: 'chinvat-bridge/theme-write',
     risk: 'dangerous',
     description: 'Write a file into the active theme (confined, PHP-linted, backed up, atomic). Arbitrary PHP = RCE by design; needs theme_write toggle.',
@@ -153,7 +151,6 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_global_styles_update',
-    destructive: true,
     ability: 'chinvat-bridge/global-styles-update',
     risk: 'act',
     description: 'Write the user Global Styles config (theme.json-shaped). merge=true deep-merges; default replaces. Writes the layer that actually renders; needs db_layer toggle.',
@@ -191,7 +188,6 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_template_update',
-    destructive: true,
     ability: 'chinvat-bridge/template-update',
     risk: 'act',
     description: 'Write block markup to the DB layer for a template/part (updates or creates the override) — the write that actually renders. Needs db_layer toggle.',
@@ -253,12 +249,27 @@ async function runBridgeAbility(
     const qs = q.toString();
     return jsonFetch(`${runUrl}?${qs || 'input='}`, { headers, signal });
   }
-  // act | dangerous -> POST { input }. Destructive-annotated abilities must run
-  // as DELETE, but shared hosts (LiteSpeed) strip DELETE bodies — so send POST
-  // with X-HTTP-Method-Override, which the WP REST server honors.
+  // Destructive-annotated abilities run as DELETE, and this Abilities API
+  // version reads DELETE input from the query string only (bodies ignored).
+  // Keep destructive annotations to small-scalar ops; content-bearing writes
+  // are annotated non-destructive plugin-side (>=0.4.1) and POST a JSON body.
+  if (spec.destructive) {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(input)) {
+      q.set(`input[${k}]`, typeof v === 'object' ? JSON.stringify(v) : String(v));
+    }
+    const qs = q.toString();
+    return jsonFetch(`${runUrl}?${qs || 'input='}`, {
+      method: 'DELETE',
+      headers,
+      signal,
+      timeoutMs: 120_000,
+    });
+  }
+  // act (non-destructive) -> POST { input }
   return jsonFetch(runUrl, {
     method: 'POST',
-    headers: spec.destructive ? { ...headers, 'X-HTTP-Method-Override': 'DELETE' } : headers,
+    headers,
     body: JSON.stringify({ input }),
     signal,
     timeoutMs: 120_000,
