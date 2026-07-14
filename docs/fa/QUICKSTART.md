@@ -60,7 +60,7 @@ Inference مدل‌ها `read` است و در هیچ Tier منتظر Approval ن
 
 ## WordPress پیشرفته (اختیاری)
 
-ماژول `wordpress` بدون Plugin اضافی، Post، Page، Media و Taxonomy را از Core REST مدیریت می‌کند؛ `list_pages`، `publish_page` و `delete_page` نیز اکنون موجودند و دو Operation آخر `dangerous` هستند. برای Options، فایل‌های Active theme، RankMath، مدیریت Plugin و ساخت Child theme سازگار با Block، [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) را نصب کنید. ماژول TypeScript یازده Operation ثابت `bridge_*` را اجرا می‌کند؛ `bridge_info` وضعیت Bridge را می‌خواند و بقیه از Abilities API استفاده می‌کنند.
+ماژول `wordpress` بدون Plugin اضافی، Post، Page، Media و Taxonomy را از Core REST مدیریت می‌کند؛ `list_pages`، `publish_page` و `delete_page` نیز موجودند و دو Operation آخر `dangerous` هستند. برای Options، فایل‌های Active theme، DB-layer مربوط به Global Styles و Site Editor templates، RankMath، مدیریت Plugin و ساخت Child theme سازگار با Block، [Chinvat WP Bridge](../../wp-plugin/chinvat-bridge/README.md) نسخهٔ `0.4.2` را نصب کنید. ماژول TypeScript نسخهٔ `0.3.0` نوزده Operation ثابت `bridge_*` را اجرا می‌کند؛ پیش از Styling از `bridge_db_state` استفاده کنید تا مشخص شود DB override یا فایل Theme در Runtime حاکم است. DB writeها به **Developer Mode** و **DB Layer (Global Styles & Templates)** نیاز دارند.
 
 ## ابزارهای MCP
 

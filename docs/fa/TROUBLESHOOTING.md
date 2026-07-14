@@ -29,6 +29,10 @@
 - پاسخ `404` برای `/wp-json/chinvat-bridge/v1/info`: افزونه Active نیست یا Route ثبت نشده است.
 - `chinvat_writes_disabled`: **Developer Mode** خاموش است یا `DISALLOW_FILE_EDIT` فعال است.
 - `chinvat_cap_disabled`: Toggle مربوط به آن Write خاموش است.
+- برای DB writeها، **Developer Mode** و Toggle دقیق **DB Layer (Global Styles & Templates)** باید روشن باشند؛ Readها فقط `edit_theme_options` می‌خواهند.
+- پاسخ خام `503` هنگام DB write می‌تواند نشان دهد PHP وسط Request از کار افتاده و Mutation بخشی اعمال شده است؛ پیش از Retry، `bridge_db_state` را اجرا کنید. در نسخهٔ `0.4.2`، `global-styles-update` به‌دلیل Crash میزبان روی `wp_update_post` عمداً رکورد قدیمی را Hard-delete و Config کامل را Reinsert می‌کند؛ Revisionها از بین می‌روند.
+- برای نصب ZIP، پوشهٔ Top-level باید دقیقاً `chinvat-bridge/` باشد؛ Wrapper اضافی یک Plugin تکراری می‌سازد. اگر WP Admin Version قدیمی نشان می‌دهد، `bridge_info` یا `bridge_plugins_list` را مبنا قرار دهید.
+- پس از Rebuild کردن `hub/dist`، Processهای `node ... --stdio` مربوط به Clientها را Restart کنید؛ Restart کردن Daemon مربوط به `npm start` به‌تنهایی Adapter داخل Stdio clientها را تازه نمی‌کند.
 - `chinvat_no_lint` یا `chinvat_lint_failed`: `theme-write` بدون PHP CLI یا `proc_open` قابل‌استفاده، همهٔ Writeهای `.php` از طرف Agent را Fail closed رد می‌کند؛ Write فایل‌های غیر-PHP ادامه دارد. `functions.php` ثابت و ساخته‌شده توسط `theme-scaffold-child` ورودی Agent نیست و از Writer محدودشدهٔ Scaffold استفاده می‌کند، بنابراین به این Gate وابسته نیست.
 - `chinvat_invalid_slug` یا `chinvat_path_escape`: `bridge_theme_scaffold_child` به‌دلیل Slug نامعتبر، Path موجود، Symlink یا خروج از Theme root متوقف شده است.
 - خطای Activation: `switch_themes`، معتبر بودن Child، نبود Theme error و نصب بودن Parent را بررسی کنید. ورودی `activate` به‌صورت پیش‌فرض `true` است.

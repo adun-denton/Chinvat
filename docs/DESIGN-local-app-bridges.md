@@ -197,14 +197,14 @@ No app process lifecycle management (launching Blender/GIMP — user opens the a
 4. **Rhino** — bonus to 3D modelling; protocol evaluation (§5) when it starts.
 5. Grok adversarial pass gates each commit, as with the scaffold.
 
-**WordPress track is PAUSED (decision 4):** plugin works as intended at current live state; future updates wait on real usage feedback. The 0.3.1-install/scaffold-validation open item is parked, not cancelled.
+**WordPress pause was superseded on 2026-07-14:** live usage resumed the track. Bridge 0.4.2 and adapter 0.3.0 now ship DB-layer state plus Global Styles and Site Editor template/part get/update/reset primitives. The next WordPress slice is export/snapshot-on-approval; the local-app build order above remains unchanged. The Bridge validation/deployment target is `ehsanmaghsoudi.com`; the 1260 site remains on EasyMCP and is outside this track.
 
 ## 9. Resolved questions (operator, 2026-07-13)
 
 1. Lean Blender op table — **agreed**; connection first, functions in later updates.
 2. GIMP — **GPL install path**; low-value target, kept as 2D testbed whose lessons transfer to Inkscape etc.
 3. Snapshot-on-approval for 3D — **no**; reverting in these apps is easy (undo, file copies), unlike WordPress. Not a priority.
-4. WP items — **paused** (see §8).
+4. WP items — the 2026-07-13 pause was **superseded by live DB-layer work on 2026-07-14** (see §8).
 5. Orca — **second in build order**, prioritized over Rhino.
 6. `profile_patch` allowlist — **broad** (see §5a): full tuning surface with bounds; the model compensates for printer model, object, and objective.
 

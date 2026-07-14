@@ -1,9 +1,10 @@
 # Roadmap
 
 ## v0.2 — routing & reach
-- **WordPress bridge delivered:** v0.1.2 security hardening ✓; v0.2.0 Developer Mode/toggles ✓; v0.3.0 block-aware child-theme scaffold ✓; v0.3.1 child-stylesheet loader ✓. The companion plugin exposes ten Abilities plus the authenticated `/wp-json/chinvat-bridge/v1/info` handshake (schema `3`).
-- **WordPress adapter extension delivered ✓:** ten static `bridge_*` operations call the handshake and known Abilities API `run` endpoints through normal Chinvat jobs/policy.
-- **Remaining WordPress slices:** mirror-on-write to commit live edits into the site's GitHub repository; separately gated `file-write` and `wp-cli`; RankMath sitewide controls (redirections, 404 monitor, sitemap, modules); plugin install/update/delete.
+- **WordPress bridge delivered:** v0.1.2 security hardening ✓; v0.2.0 Developer Mode/toggles ✓; v0.3.x block-aware child-theme scaffold/loader ✓; v0.4.0–0.4.2 DB-layer state, Global Styles, and template/part primitives ✓. The plugin exposes 18 Abilities plus the authenticated schema-3 handshake.
+- **WordPress adapter extension delivered ✓:** 19 static `bridge_*` operations (handshake + 18 abilities) use the verified GET / DELETE-query / POST-body Abilities contract through normal Chinvat jobs/policy.
+- **Next WordPress slice:** export/snapshot-on-approval—read verified DB overrides, write them into child-theme files, commit to the site's GitHub repository, then reset the DB overrides so files become authoritative.
+- **Later WordPress slices:** cache purge, named site targets, revisions, coherence operations; separately gated `file-write` and `wp-cli`; RankMath sitewide controls (redirections, 404 monitor, sitemap, modules); plugin install/update/delete.
 - `module:"auto"`: route by task type, cost, latency, context window, availability, historical success (metrics already captured per job in v0.1).
 - **Named openai-compatible instances** (`nvidia`, `groq`, `together`, `lmstudio`, `vllm`, …) once the registry supports multiple instances per provider — the provider layer is already a factory, so each is a one-line registration.
 - Blender module (Python RPC), browser-automation module.
@@ -26,7 +27,7 @@
 
 ## Shipped
 - Eleven modules incl. the reusable **openai-compatible** worker (NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure), **X (Twitter)**, LinkedIn, Instagram, Facebook, WhatsApp, WordPress, Telegram, OpenRouter, Ollama.
-- **Chinvat WP Bridge 0.3.1 + hub integration:** ten Abilities, Developer Mode/write toggles, theme-write mitigations, option guards, RankMath post metadata, plugin activation/deactivation, a block-aware child-theme scaffold with a trusted `functions.php` stylesheet loader, and authenticated schema-3 handshake. Hub invocation exposes eleven static `bridge_*` operations with policy-preserving risks and best-effort health detection.
+- **Chinvat WP Bridge 0.4.2 + adapter 0.3.0:** 18 Abilities including runtime-authoritative DB state, Global Styles, and Site Editor template/part get/update/reset primitives; Developer Mode and per-surface toggles; authenticated schema-3 handshake. Hub invocation exposes 19 static `bridge_*` operations with policy-preserving risks and best-effort health detection.
 - First-class **Connect** flow: per-client config, safe auto-install, endpoint self-test; per-module **Test connection**.
 
 ## Standing chores
