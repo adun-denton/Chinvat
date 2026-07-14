@@ -29,6 +29,8 @@ interface BridgeOp {
   op: string;
   ability: string;
   risk: Risk;
+  /** Ability is annotated destructive:true — the Abilities run route requires DELETE for these. */
+  destructive?: boolean;
   description: string;
   params: Record<string, { type: 'string' | 'number' | 'boolean' | 'object' | 'array'; description?: string; required?: boolean }>;
 }
@@ -50,6 +52,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_option_update',
+    destructive: true,
     ability: 'chinvat-bridge/options-update',
     risk: 'act',
     description: 'Write a single wp_options value (denylist-guarded; needs options_update toggle).',
@@ -74,6 +77,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_theme_write',
+    destructive: true,
     ability: 'chinvat-bridge/theme-write',
     risk: 'dangerous',
     description: 'Write a file into the active theme (confined, PHP-linted, backed up, atomic). Arbitrary PHP = RCE by design; needs theme_write toggle.',
@@ -112,6 +116,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_plugins_toggle',
+    destructive: true,
     ability: 'chinvat-bridge/plugins-toggle',
     risk: 'act',
     description: 'Activate or deactivate a plugin (protected plugins refused; needs plugins_toggle toggle).',
@@ -122,6 +127,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_theme_scaffold_child',
+    destructive: true,
     ability: 'chinvat-bridge/theme-scaffold-child',
     risk: 'dangerous',
     description: 'Create a block-aware child of the active theme (style.css, theme.json, header/footer parts, templates dir) and optionally activate it, giving theme-write an update-proof target. Needs child_scaffold toggle.',
@@ -147,6 +153,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_global_styles_update',
+    destructive: true,
     ability: 'chinvat-bridge/global-styles-update',
     risk: 'act',
     description: 'Write the user Global Styles config (theme.json-shaped). merge=true deep-merges; default replaces. Writes the layer that actually renders; needs db_layer toggle.',
@@ -157,6 +164,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_global_styles_reset',
+    destructive: true,
     ability: 'chinvat-bridge/global-styles-reset',
     risk: 'act',
     description: 'Remove the user Global Styles override so theme.json files render again. Trashes (recoverable) unless force=true; needs db_layer toggle.',
@@ -183,6 +191,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_template_update',
+    destructive: true,
     ability: 'chinvat-bridge/template-update',
     risk: 'act',
     description: 'Write block markup to the DB layer for a template/part (updates or creates the override) — the write that actually renders. Needs db_layer toggle.',
@@ -196,6 +205,7 @@ const BRIDGE_OPS: BridgeOp[] = [
   },
   {
     op: 'bridge_template_reset',
+    destructive: true,
     ability: 'chinvat-bridge/template-reset',
     risk: 'act',
     description: 'Remove the DB override for a template/part so the theme file renders again. Trashes (recoverable) unless force=true; needs db_layer toggle.',
@@ -243,9 +253,9 @@ async function runBridgeAbility(
     const qs = q.toString();
     return jsonFetch(`${runUrl}?${qs || 'input='}`, { headers, signal });
   }
-  // act | dangerous -> POST { input }
+  // act | dangerous -> POST { input }; destructive-annotated abilities must use DELETE.
   return jsonFetch(runUrl, {
-    method: 'POST',
+    method: spec.destructive ? 'DELETE' : 'POST',
     headers,
     body: JSON.stringify({ input }),
     signal,
