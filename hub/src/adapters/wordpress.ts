@@ -253,10 +253,12 @@ async function runBridgeAbility(
     const qs = q.toString();
     return jsonFetch(`${runUrl}?${qs || 'input='}`, { headers, signal });
   }
-  // act | dangerous -> POST { input }; destructive-annotated abilities must use DELETE.
+  // act | dangerous -> POST { input }. Destructive-annotated abilities must run
+  // as DELETE, but shared hosts (LiteSpeed) strip DELETE bodies — so send POST
+  // with X-HTTP-Method-Override, which the WP REST server honors.
   return jsonFetch(runUrl, {
-    method: spec.destructive ? 'DELETE' : 'POST',
-    headers,
+    method: 'POST',
+    headers: spec.destructive ? { ...headers, 'X-HTTP-Method-Override': 'DELETE' } : headers,
     body: JSON.stringify({ input }),
     signal,
     timeoutMs: 120_000,
