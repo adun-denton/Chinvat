@@ -16,7 +16,7 @@ A green health result proves the configured identity or endpoint. It does not al
 
 Exact service prerequisites and fields are listed in [Modules](MODULES.md).
 
-Chinvat has exactly 11 built-ins: `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `whatsapp`, `facebook`, `instagram`, `linkedin`, and `x`. By default, `ollama`, `openrouter`, `system`, `telegram`, and `wordpress` are enabled. The other six remain disabled until configured.
+Chinvat has exactly 14 built-ins: `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `blender`, `orca`, `gimp`, `whatsapp`, `facebook`, `instagram`, `linkedin`, and `x`. By default, `ollama`, `openrouter`, `system`, `telegram`, and `wordpress` are enabled. The other nine remain disabled until configured.
 
 ## Connect
 

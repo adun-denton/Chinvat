@@ -44,6 +44,7 @@ hub/src/                    hub, jobs, policy, MCP, API, and built-in adapters
 dashboard/src/              local React dashboard
 clients/                    coordinator configuration and Codex plugin
 wp-plugin/chinvat-bridge/   optional WordPress Abilities companion plugin
+app-bridges/                pinned or externally installed local-app bridge assets
 docs/                       guides, architecture, modules, and roadmap
 ```
 
@@ -82,6 +83,9 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `telegram` | full (incl. approval buttons) | bot token |
 | `wordpress` | full | site URL + application password |
 | `system` (Windows/shell/files) | full | policy tier ≥ approve for writes |
+| `blender` | v0.1.0 | Blender + enabled bridge add-on; one Connect click |
+| `orca` | v0.1.0 | CLI-capable Orca-lineage slicer + configured paths |
+| `gimp` | v0.1.0 | GIMP 3 + user-installed GPL plug-in; per-session start |
 | `whatsapp` (Cloud API) | token-config | Meta app token + phone number ID |
 | `facebook` (Pages) | token-config | page access token |
 | `instagram` (Graph) | token-config | IG user ID + token |
@@ -89,6 +93,10 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `x` (Twitter) | token-config | OAuth 2.0 user token (`tweet.write`) |
 
 `openai-compatible` is one reusable worker for NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure, and any other OpenAI-compatible endpoint — point it at a `Base URL` with the provider’s `API key`. Provider-named instances are roadmap work, not shipped modules. New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
+
+### Local-app bridges
+
+`blender`, `orca`, and `gimp` add local desktop-app control. Blender and GIMP use loopback sockets; Orca spawns a pinned slicer CLI and deliberately has no printer-control surface. Read-tier PNG snapshots are artifacts for a vision-capable caller to inspect and iterate on—Chinvat does not run vision itself. See the [local-app bridge design](docs/DESIGN-local-app-bridges.md), [Blender app-side setup](app-bridges/blender/README.md), and [GIMP setup](app-bridges/gimp/SETUP.md).
 
 ### WordPress companion plugin
 
@@ -110,7 +118,7 @@ Model inference is `read`, so it runs at every tier without approval.
 
 [Getting started](docs/GETTING-STARTED.md) · [Using models](docs/MODELS.md) · [Configuration](docs/CONFIGURATION.md) · [Modules guide](docs/MODULES.md) · [راهنمای فارسی](docs/fa/README.md)
 
-[Development plan](docs/DEVELOPMENT-PLAN.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Agent handover](AGENTS.md)
+[Development plan](docs/DEVELOPMENT-PLAN.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Local-app bridge design](docs/DESIGN-local-app-bridges.md) · [Agent handover](AGENTS.md)
 
 ## License
 

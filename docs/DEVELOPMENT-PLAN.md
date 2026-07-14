@@ -58,6 +58,6 @@ Git clone → `npm install` → `npm run build` → `npm start`. `scripts/instal
 
 ## 9. Delivered since the v0.1 plan
 
-- **X (Twitter) module** — added with `post_tweet`, `delete_tweet`, `me`, `search_recent`, OAuth 2.0, config-gated and disabled by default. The current 11 built-ins are: ollama, openrouter, openai-compatible, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x.
+- **X (Twitter) module** — added with `post_tweet`, `delete_tweet`, `me`, `search_recent`, OAuth 2.0, config-gated and disabled by default. The current 14 built-ins are: ollama, openrouter, openai-compatible, system, telegram, wordpress, blender, orca, gimp, whatsapp, facebook, instagram, linkedin, x.
 - **Connect workflow** — first-class coordinator connection, replacing the Settings view. Generates each client's config in its real format (Codex TOML, Claude Code/Cursor/Claude Desktop JSON, Hermes YAML) with host detection, copy or safe auto-install (preview → timestamped backup → merge only the `chinvat` entry → re-test), plus a Test MCP endpoint action that runs `workers_list`. Backed by `hub/src/connect.ts` and `/api/connect/*`; adds `smol-toml` and `yaml`. Verified live: correct paths/formats for all six clients, non-destructive TOML/JSON merges with backups, endpoint self-test reporting tools/workers. Streamable HTTP is the default transport; Claude Desktop (no native HTTP) defaults to stdio.
 - **Build hardening** — dashboard build now type-checks (`tsc --noEmit && vite build`) after collapsing a project-reference tsconfig that broke a clean Windows build.

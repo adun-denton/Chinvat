@@ -38,7 +38,19 @@ interface ChinvatAdapter {
 }
 ```
 
-`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Eleven modules ship built-in (`ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`); more load from `modules/` at boot.
+`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Fourteen modules ship built-in (`ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `blender`, `orca`, `gimp`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`); more load from `modules/` at boot.
+
+## Local-app bridges
+
+The [local-app bridge design](DESIGN-local-app-bridges.md) defines the desktop-app family. `hub/src/lib/local-app-bridge.ts` is the shared transport for socket apps (Blender and GIMP): loopback TCP, one JSON request and one JSON response per connection, with a shared serial queue per `host:port` so only one command is in flight at an endpoint. It accepts both `result`/`message` and `results`/`error` response dialects, and its `raw` escape hatch sends a verbatim request object for protocols such as GIMP's `{ "cmds": [...] }`. It fails closed for non-loopback hosts, limits requests to 1 MiB and responses to 64 MiB, and applies per-operation timeouts plus `AbortSignal` cancellation.
+
+Orca deliberately does **not** use this helper: it is a process-spawn worker for a pinned CLI executable. Its model files, outputs, and profiles are confined with realpath and prefix checks. Blender/GIMP scripting (`execute_python`) is local code execution by design, therefore `dangerous` and separately behind each module's default-off `python_enabled` toggle; approval is reachable only after that explicit opt-in. This is operational safety for an admin-only local bridge, not a boundary against untrusted callers.
+
+Every visual app exposes a read-tier PNG snapshot artifact. Chinvat does not run vision; a vision-capable MCP caller reads the artifact and iterates. The activation models are intentionally distinct:
+
+1. **No app running:** Orca, through its headless CLI.
+2. **App running + one Connect click:** Blender's enabled add-on.
+3. **App running + per-session menu action + subfolder install:** GIMP; see [GIMP setup](../app-bridges/gimp/SETUP.md).
 
 ## WordPress integration paths
 

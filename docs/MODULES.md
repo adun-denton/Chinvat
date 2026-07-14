@@ -2,7 +2,7 @@
 
 Every module is configured on the dashboard's **Modules** page. Secrets are stored only in `data/chinvat.config.json` on your machine and are sent only to the service they belong to. Each module has a policy **tier** (observe / approve / autonomous) — see the [README](../README.md#policy-what-crosses-the-bridge). Every card has a **Test connection** button that re-runs the module's health check.
 
-The 11 built-ins are `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `whatsapp`, `facebook`, `instagram`, `linkedin`, and `x`. The first-boot enabled set is `ollama`, `openrouter`, `system`, `telegram`, and `wordpress`; the remaining modules are disabled until configured.
+The 14 built-ins are `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `blender`, `orca`, `gimp`, `whatsapp`, `facebook`, `instagram`, `linkedin`, and `x`. The first-boot enabled set is `ollama`, `openrouter`, `system`, `telegram`, and `wordpress`; the remaining modules are disabled until configured.
 
 ## ollama — local models
 Install [Ollama](https://ollama.com) and pull a model (`ollama pull qwen3`). Fields: `Base URL` (default `http://127.0.0.1:11434`) and `Default model` (default `qwen3`). Operations: `chat`, `generate`, `embeddings`, `list_models`, `pull_model`. Default tier: autonomous; `pull_model` is `act`, while the other operations are `read`.
@@ -17,6 +17,17 @@ One reusable worker for **NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, 
 
 ## system — the Windows machine
 Runs PowerShell commands and file operations, fenced to **allowedRoot** (your home directory by default; widen it or set `allowFullAccess` deliberately). Operations include `run_command` and `delete_path` (both `dangerous`), `read_file`/`write_file`/`move_path`, `open_app`, `process_list`, `system_info`. Default tier: **approve** — dangerous ops wait for you.
+
+## blender — local 3D scenes
+Version `0.1.0` controls Blender through the pinned [Blender bridge add-on](../app-bridges/blender/README.md), over TCP `127.0.0.1:9876`. Install and enable the add-on, then in the 3D-viewport sidebar (**N**) open the **BlenderMCP** tab and select **Connect to Claude**. The adapter bypasses the add-on's MCP server and speaks its socket protocol directly. Fields: `host` (default `127.0.0.1`), `port` (default `9876`), and `python_enabled` (default off). Operations: `scene_info`, `object_info`, `viewport_snapshot` (PNG artifact for visual verification), and `execute_python` (arbitrary `bpy`, `dangerous`). `execute_python` is local code execution by design: it needs both the module's `python_enabled` opt-in and the normal policy approval path.
+
+## orca — settings and slicing, not printer control
+Version `0.1.0` drives a pinned **CLI-capable Orca-lineage slicer** by process spawn—no socket and no plug-in. It controls profiles and geometry, never raw G-code, printer control, machine geometry, or start/end G-code. Fields: `exe_path`, `data_dir`, `project_dir` (confined model inputs), `output_dir`, and `max_slice_seconds`. All paths must be absolute. `profiles_list` reads user and vendor machine/process/filament presets (optional `category` and `filter`, max 300); `profile_read` reads one result; `slice_model` takes a model and a matching machine/process/filament triplet, then produces a 3MF with G-code at `Metadata/plate_N.gcode` and saves the exact resolved profiles beside it. Under `system`, returned `rel_path`s include the vendor segment: `system/<vendor>/<category>/*.json`.
+
+Use the shipped preset triplet for the selected printer/nozzle, clone it in later profile-editing work, patch only needed settings, slice, inspect the output, and re-slice. Do not derive a printer profile from scratch. Mainline OrcaSlicer for Windows is currently not headless-capable: its GUI-only launcher has no `orca-slicer-console.exe` and throws during early initialization. Point `exe_path` at a CLI-capable Orca build instead; the adapter was validated with Anycubic Slicer Next. See the [design](DESIGN-local-app-bridges.md#5a-orcaslicer-parallel-track--different-transport).
+
+## gimp — local 2D images
+Version `0.1.0` connects GIMP 3 to the user-installed `maorcc/gimp-mcp` plug-in on TCP `127.0.0.1:9877`. The plug-in is GPLv3 and **is not vendored** into this MIT repository; only Chinvat's MIT socket adapter is included. Fields: `host`, `port` (default `9877`), and `python_enabled` (default off). Operations: `gimp_info`, `image_metadata`, `snapshot` (PNG artifact; optional scaling), and `execute_python` (PyGObject lines, `dangerous`). Follow the two required manual steps in [GIMP setup](../app-bridges/gimp/SETUP.md): install it in its same-named subfolder, then for every GIMP session open an image and select **Tools → MCP → Start MCP Server**. As with Blender, Python execution requires the toggle and policy approval.
 
 ## telegram — messaging + approvals
 Create a bot with [@BotFather](https://t.me/botfather) and paste the token. To get your `chatId`, send the bot a message then use the `get_updates` operation (Playground) and read the chat id. Enable **approvalButtons** to approve/deny jobs from your phone; enable **notifyJobs** for completion pings. Operations: `send_message`, `send_document`, `get_me`, `get_updates`.
