@@ -197,20 +197,21 @@ No app process lifecycle management (launching Blender/GIMP — user opens the a
 4. **Rhino** — bonus to 3D modelling; protocol evaluation (§5) when it starts.
 5. Grok adversarial pass gates each commit, as with the scaffold.
 
-**WordPress pause was superseded on 2026-07-14:** live usage resumed the track. Bridge 0.4.2 and adapter 0.4.0 now ship DB-layer state plus Global Styles and Site Editor template/part get/update/reset primitives; core REST also supports existing-page editing, block-navigation editing, media-library management, featured media, and bounded URL/base64 media ingestion. The next WordPress slice is export/snapshot-on-approval; the local-app build order above remains unchanged. The Bridge validation/deployment target is `ehsanmaghsoudi.com`; the 1260 site remains on EasyMCP and is outside this track.
+**WordPress track is PAUSED (decision 4):** plugin works as intended at current live state; future updates wait on real usage feedback. The 0.3.1-install/scaffold-validation open item is parked, not cancelled.
 
 ## 9. Resolved questions (operator, 2026-07-13)
 
 1. Lean Blender op table — **agreed**; connection first, functions in later updates.
 2. GIMP — **GPL install path**; low-value target, kept as 2D testbed whose lessons transfer to Inkscape etc.
 3. Snapshot-on-approval for 3D — **no**; reverting in these apps is easy (undo, file copies), unlike WordPress. Not a priority.
-4. WP items — the 2026-07-13 pause was **superseded by live DB-layer work on 2026-07-14** (see §8).
+4. WP items — **paused** (see §8).
 5. Orca — **second in build order**, prioritized over Rhino.
 6. `profile_patch` allowlist — **broad** (see §5a): full tuning surface with bounds; the model compensates for printer model, object, and objective.
 
 ## Backlog (operator, not scheduled)
 
 - Dashboard UX: newly loaded modules are easy to miss as disabled — either highlight the Enable control for new/never-enabled modules or make new modules enabled by default. (Hit during blender 0.1.0 live validation, 2026-07-13.)
+- Dashboard UX (GIMP callout — operator, 2026-07-13): GIMP's setup differs from every other module and the UI should say so at the module. Three activation models now exist: Orca = no app running (headless CLI); Blender = app running + one Connect click; GIMP = app running + a per-session menu action (Tools → MCP → Start MCP Server) that does NOT autostart, plus a GIMP-3 subfolder install quirk (plug-ins\gimp-mcp-plugin\gimp-mcp-plugin.py, not loose). Surface the per-module activation steps (link SETUP-gimp.md) rather than a generic health error. Consider a per-module "activation kind" field the dashboard renders.
 - Session-spawned stdio hubs go stale after a rebuild: the dashboard hub restart doesn't touch them, and 'unknown module' is the only symptom. Consider a version/build stamp in workers_list or an MCP-visible staleness warning. (Workaround found: detached delayed kill of the stale PIDs; the client respawns on next call.)
 
 ## 10. Execution plan — token/cost efficiency
