@@ -2,11 +2,17 @@
  * local-app-bridge.ts — shared loopback TCP/JSON client for local application
  * bridges (Blender add-on, GIMP plug-in, Rhino plugin).
  *
- * Wire contract (matches ahujasid/blender-mcp add-on, MIT):
- *   request:  one JSON object  { "type": string, "params": object }
- *   response: one JSON object  { "status": "success"|"error", "result"?: any, "message"?: string }
- * No length prefix and no newline framing — the peer writes a single JSON
- * document and the reader accumulates until the buffer parses.
+ * Wire contract, two framings:
+ *   raw (default; ahujasid/blender-mcp, maorcc/gimp-mcp):
+ *     request:  one JSON object  { "type": string, "params": object }
+ *     response: one JSON object  { "status": "success"|"error", "result"?: any, "message"?: string }
+ *     No length prefix and no newline framing — the peer writes a single JSON
+ *     document and the reader accumulates until the buffer parses.
+ *   framed (jingcheng-chen/rhinomcp ≥0.3):
+ *     both directions are a 4-byte big-endian length header followed by that
+ *     many bytes of UTF-8 JSON (same envelope shapes as raw). A legacy peer
+ *     that writes bare JSON where a header should be is detected ('{' = 0x7B
+ *     would decode as a ~2 GB length) and failed with actionable guidance.
  *
  * Design: connection-per-command, single in-flight command per bridge
  * (app-side servers execute on the app main thread; concurrency interleaves
@@ -24,6 +30,8 @@ export interface BridgeOptions {
   timeoutMs?: number;
   /** Hard cap on accumulated response bytes (base64 images can be large). */
   maxResponseBytes?: number;
+  /** Wire framing: 'raw' bare-JSON (default) or 'framed' 4-byte BE length prefix. */
+  framing?: 'raw' | 'framed';
 }
 
 export interface BridgeCommand {
@@ -41,6 +49,7 @@ export interface SendOptions {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RESPONSE = 64 * 1024 * 1024; // 64 MiB
+const FRAME_HEADER_SIZE = 4;
 /** Outbound request cap — commands are small; anything bigger is a caller bug
  *  and would monopolize the serialized queue (Grok gimp-review fix #2). */
 const MAX_REQUEST_BYTES = 1024 * 1024; // 1 MiB
@@ -66,9 +75,12 @@ export class LocalAppBridge {
     }
   }
 
-  /** Shared, queue-preserving instance for an endpoint. */
+  /** Shared, queue-preserving instance for an endpoint. Framing is part of
+   *  the cache key so a raw instance can never poison a framed endpoint (or
+   *  vice versa) on the same host:port (Grok rhino-review fix #1). Other
+   *  `extra` options still apply only at first creation. */
   static for(host: string, port: number, extra?: Omit<BridgeOptions, 'host' | 'port'>): LocalAppBridge {
-    const key = `${host}:${port}`;
+    const key = `${host}:${port}:${extra?.framing ?? 'raw'}`;
     let b = instances.get(key);
     if (!b) {
       b = new LocalAppBridge({ host, port, ...extra });
@@ -110,6 +122,7 @@ export class LocalAppBridge {
   private sendNow(cmd: BridgeCommand, options: SendOptions): Promise<unknown> {
     const timeoutMs = options.timeoutMs ?? this.opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const maxBytes = this.opts.maxResponseBytes ?? DEFAULT_MAX_RESPONSE;
+    const framed = this.opts.framing === 'framed';
     const { signal } = options;
 
     return new Promise((resolve, reject) => {
@@ -118,6 +131,7 @@ export class LocalAppBridge {
       const sock = net.connect({ host: this.opts.host, port: this.opts.port });
       const chunks: Buffer[] = [];
       let total = 0;
+      let expectedFrame = -1; // framed mode: payload length once header is read
       let settled = false;
 
       const cleanup = () => {
@@ -137,6 +151,29 @@ export class LocalAppBridge {
         resolve(value);
       };
 
+      /** Shared envelope handling for both framings. `final` = the message is
+       *  known complete, so a parse failure is an error rather than "keep reading". */
+      const handleText = (text: string, final: boolean) => {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          if (final) return fail(`bridge sent unparseable JSON: ${text.slice(0, 200)}`);
+          return; // raw mode: not complete yet
+        }
+        // Dialect tolerance: blender-mcp uses result/message, gimp-mcp uses results/error.
+        const res = parsed as { status?: string; result?: unknown; results?: unknown; message?: unknown; error?: unknown };
+        // 'in' checks (not ??) so a legitimate JSON null result stays null
+        // (Grok rhino-review fix #6).
+        if (res.status === 'success')
+          return succeed('result' in res ? res.result : 'results' in res ? res.results : {});
+        if (res.status === 'error') {
+          const msg = [res.message, res.error].find((m) => typeof m === 'string') as string | undefined;
+          return fail(`bridge error: ${msg ?? text.slice(0, 500)}`);
+        }
+        fail(`bridge returned malformed response: ${text.slice(0, 200)}`);
+      };
+
       const timer = setTimeout(
         () => fail(`bridge command '${cmd.type}' timed out after ${timeoutMs}ms`, true),
         timeoutMs
@@ -154,39 +191,64 @@ export class LocalAppBridge {
       );
 
       sock.once('connect', () => {
-        const payload = cmd.raw ?? { type: cmd.type, params: cmd.params ?? {} };
-        if (!cmd.raw && !cmd.type) return fail('BridgeCommand needs type or raw');
-        const body = JSON.stringify(payload);
-        if (Buffer.byteLength(body, 'utf8') > MAX_REQUEST_BYTES)
-          return fail(`bridge request exceeds ${MAX_REQUEST_BYTES} bytes`);
-        sock.write(body);
+        // Sync throws (circular params, BigInt) must fail the promise, not
+        // hang until the timer (Grok rhino-review fix #7).
+        try {
+          const payload = cmd.raw ?? { type: cmd.type, params: cmd.params ?? {} };
+          if (!cmd.raw && !cmd.type) return fail('BridgeCommand needs type or raw');
+          const body = JSON.stringify(payload);
+          if (Buffer.byteLength(body, 'utf8') > MAX_REQUEST_BYTES)
+            return fail(`bridge request exceeds ${MAX_REQUEST_BYTES} bytes`);
+          if (framed) {
+            const bytes = Buffer.from(body, 'utf8');
+            const header = Buffer.alloc(FRAME_HEADER_SIZE);
+            header.writeUInt32BE(bytes.length, 0);
+            sock.write(Buffer.concat([header, bytes]));
+          } else {
+            sock.write(body);
+          }
+        } catch (e) {
+          fail(`bridge request serialization failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
       });
 
       sock.on('data', (chunk: Buffer) => {
         total += chunk.length;
-        if (total > maxBytes) return fail(`bridge response exceeded ${maxBytes} bytes`);
         chunks.push(chunk);
-        // Cheap completeness heuristic before the expensive concat+decode+parse:
-        // a JSON object response ends with '}' (the add-on json.dumps output has no
-        // trailing whitespace). Avoids O(n^2) work on many-chunk large responses
-        // (per Grok review fix #2); a response that never ends with '}' is caught
-        // by the timeout.
+
+        if (framed) {
+          // Framed mode is bounded by the header, not the running total: the
+          // length check on expectedFrame caps memory, and a complete frame
+          // must be handled even if trailing bytes in the same chunk push the
+          // total past the cap (Grok rhino-review fix #2). Accumulation stops
+          // at handle-time because cleanup() destroys the socket.
+          if (expectedFrame < 0) {
+            if (total < FRAME_HEADER_SIZE) return;
+            const head = chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
+            if (head[0] === 0x7b /* '{' */)
+              return fail(
+                'bridge sent an unframed response — the installed rhinomcp plugin predates length-prefixed framing; update the plugin via the Rhino Package Manager'
+              );
+            expectedFrame = head.readUInt32BE(0);
+            if (expectedFrame <= 0 || expectedFrame > maxBytes)
+              return fail(`bridge sent invalid frame length ${expectedFrame} (limit ${maxBytes} bytes)`);
+          }
+          if (total < FRAME_HEADER_SIZE + expectedFrame) return;
+          const all = Buffer.concat(chunks);
+          return handleText(
+            all.subarray(FRAME_HEADER_SIZE, FRAME_HEADER_SIZE + expectedFrame).toString('utf8'),
+            true
+          );
+        }
+
+        if (total > maxBytes) return fail(`bridge response exceeded ${maxBytes} bytes`);
+        // Raw mode. Cheap completeness heuristic before the expensive
+        // concat+decode+parse: a JSON object response ends with '}' (the add-on
+        // json.dumps output has no trailing whitespace). Avoids O(n^2) work on
+        // many-chunk large responses (per Grok review fix #2); a response that
+        // never ends with '}' is caught by the timeout.
         if (chunk[chunk.length - 1] !== 0x7d /* '}' */) return;
-        const text = Buffer.concat(chunks).toString('utf8');
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          return; // not complete yet
-        }
-        // Dialect tolerance: blender-mcp uses result/message, gimp-mcp uses results/error.
-        const res = parsed as { status?: string; result?: unknown; results?: unknown; message?: unknown; error?: unknown };
-        if (res.status === 'success') return succeed(res.result ?? res.results ?? {});
-        if (res.status === 'error') {
-          const msg = [res.message, res.error].find((m) => typeof m === 'string') as string | undefined;
-          return fail(`bridge error: ${msg ?? text.slice(0, 500)}`);
-        }
-        fail(`bridge returned malformed response: ${text.slice(0, 200)}`);
+        handleText(Buffer.concat(chunks).toString('utf8'), false);
       });
 
       sock.once('close', () => {

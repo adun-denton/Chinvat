@@ -1,4 +1,4 @@
-# Chinvat Local App Bridges — Design Doc
+﻿# Chinvat Local App Bridges — Design Doc
 
 **Status:** Draft for review — no code written yet.
 **Scope:** Blender, GIMP, Rhino adapters + shared `local-app-bridge` helper; OrcaSlicer adapter (settings + slicing only — physical print control explicitly out of scope).
@@ -126,13 +126,24 @@ Op sketch (final table when this slice starts): `image_info`, `snapshot` (`read`
 
 ---
 
-## 5. Rhino (third — better news than "if possible")
+## 5. Rhino (third — implemented 2026-07-14)
 
-**Fact (verified 2026-07-13):** the ecosystem is mature. McNeel ships an **official** [`mcneel/rhinomcp`](https://github.com/mcneel/rhinomcp); community options include [`jingcheng-chen/rhinomcp`](https://github.com/jingcheng-chen/rhinomcp) (MIT; Rhino plugin on TCP `127.0.0.1:1999`, same JSON pattern, drives Grasshopper: find/wire components, set sliders, solve) and larger ones like GOLEM-3DMCP (105 tools, Rhino 8).
+**Decision (2026-07-14, operator-confirmed):** target `jingcheng-chen/rhinomcp`'s plugin half (MIT, 18 releases, latest 0.3.1 Jun 2026). Chinvat speaks TCP/JSON straight to the Rhino plugin on `127.0.0.1:1999` — the project's Python MCP-server tier is bypassed entirely, so no MCP-to-MCP proxying after all. McNeel's official `mcneel/RhinoMCP` was re-evaluated at slice start and rejected for now: 3 commits, no releases, build-from-source, and it embeds an MCP-over-HTTP server (`:4862`) that would need a whole new client layer beside `local-app-bridge.ts`. Backlogged for re-evaluation once it ships releases.
 
-**Decision:** defer protocol commitment until this slice starts; evaluate then whether the official McNeel server exposes a direct socket the adapter can speak (as with Blender) or only an MCP surface. Default plan if not: `jingcheng-chen`'s plugin half (MIT, proven wire contract on :1999). Rhino is the one place where MCP-to-MCP proxying might be the pragmatic exception — flag it, don't decide it now.
+**Transport (new since Blender/GIMP):** rhinomcp ≥0.3 frames every message in both directions as a 4-byte big-endian length header + UTF-8 JSON. `local-app-bridge.ts` grew a `framing: 'raw' | 'framed'` option (raw = blender/gimp path, byte-for-byte unchanged; framing is part of the shared-instance cache key so the modes can never poison each other on a shared host:port). A legacy unframed plugin is detected — a bare `{` where the header should be — and failed with actionable update guidance. Envelope shapes are unchanged (`{type,params}` / `{status,result|message}`); the plugin publishes JSON Schema wire contracts in-repo (`contracts/`), pinned against 0.3.1.
 
-Op sketch: `document_info`, `object_info`, `viewport_capture` (`read`); `create_geometry`, `boolean_ops`, `export_3dm/stl/step` (`act`); `execute_rhinoscript/python`, Grasshopper definition edits (`dangerous`).
+### Op table (v0.1 connection slice, shipped)
+
+| op | wire command | risk | notes |
+| --- | --- | --- | --- |
+| `document_summary` | `get_document_summary` | read | objects, layers, counts |
+| `object_info` | `get_object_info` | read | by GUID `id` or `name` |
+| `viewport_snapshot` | `capture_viewport` | read | PNG arrives **inline as base64** (no temp-file leg, unlike Blender); PNG magic verified; saved as artifact |
+| `execute_rhinoscript` | `execute_rhinoscript_python_code` | dangerous | `rhinoscript_enabled` toggle (default off); 100 KiB code cap; 120 s timeout |
+
+Plugin **not vendored** (compiled C#, distributed via Rhino's Package Manager — GIMP-style user-install path; see `app-bridges/rhino/SETUP.md`). Activation model #4: app open + `mcpstart` typed once per Rhino session. Deliberately not surfaced in v0.1: `run_command`, RhinoCommon C# execution, and all Grasshopper ops — later slices. Mock tests: `scripts/test-rhino-bridge.mjs` (14 cases incl. framing edge cases + raw-mode regression).
+
+Grok 4.5 adversarial pass: 8 findings, 6 applied — framing cache-key poisoning (HIGH), framed size-gate rejecting a legal max-size frame with trailing bytes (HIGH), JSON-null result coerced to `{}`, uncaught sync throw in connect handler hanging until timeout, missing PNG validation on `image_data`, viewport-name bounds (length + control chars; full allowlisting declined because the wire contract permits custom named viewports). 2 declined with rationale: un-serializing `ping` (serialization was itself a prior Grok mandate — app main-thread safety); raw-path concat cost (pre-existing shipped behavior, loopback-only, unchanged by this commit).
 
 ---
 
@@ -213,6 +224,7 @@ No app process lifecycle management (launching Blender/GIMP — user opens the a
 - Dashboard UX: newly loaded modules are easy to miss as disabled — either highlight the Enable control for new/never-enabled modules or make new modules enabled by default. (Hit during blender 0.1.0 live validation, 2026-07-13.)
 - Dashboard UX (GIMP callout — operator, 2026-07-13): GIMP's setup differs from every other module and the UI should say so at the module. Three activation models now exist: Orca = no app running (headless CLI); Blender = app running + one Connect click; GIMP = app running + a per-session menu action (Tools → MCP → Start MCP Server) that does NOT autostart, plus a GIMP-3 subfolder install quirk (plug-ins\gimp-mcp-plugin\gimp-mcp-plugin.py, not loose). Surface the per-module activation steps (link SETUP-gimp.md) rather than a generic health error. Consider a per-module "activation kind" field the dashboard renders.
 - Session-spawned stdio hubs go stale after a rebuild: the dashboard hub restart doesn't touch them, and 'unknown module' is the only symptom. Consider a version/build stamp in workers_list or an MCP-visible staleness warning. (Workaround found: detached delayed kill of the stale PIDs; the client respawns on next call.)
+- Re-evaluate mcneel/RhinoMCP (official, MCP-over-HTTP :4862) as an alternative Rhino backend once it ships releases; would need an MCP-over-HTTP client layer beside local-app-bridge.ts. Activation-kind field now has a fourth model: Rhino = app + per-session mcpstart command. (2026-07-14.)
 
 ## 10. Execution plan — token/cost efficiency
 
