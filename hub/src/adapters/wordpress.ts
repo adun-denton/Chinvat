@@ -494,7 +494,7 @@ async function runBridgeAbility(
 
 const adapter: ChinvatAdapter = {
   name: 'wordpress',
-  version: '0.3.1',
+  version: '0.4.0',
   description:
     'WordPress via REST API — posts, pages, media, taxonomy and block navigation. Optional Chinvat WP Bridge companion plugin adds options, theme file I/O, DB-layer Global Styles and template overrides (the layer that wins at runtime), RankMath and plugin management (bridge_* ops). Publishing, deletion, live navigation and theme writes are gated as dangerous.',
   configSchema: [

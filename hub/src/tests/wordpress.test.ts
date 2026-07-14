@@ -48,6 +48,7 @@ function mockJsonFetch(handler: (call: Captured) => unknown): Captured[] {
 }
 
 test('capabilities expose editable pages, media management, navigation and featured media', () => {
+  assert.equal(wordpress.version, '0.4.0');
   const specs = new Map(wordpress.capabilities().map((spec) => [spec.name, spec]));
   assert.equal(specs.get('get_page')?.risk, 'read');
   assert.equal(specs.get('update_page')?.risk, 'act');

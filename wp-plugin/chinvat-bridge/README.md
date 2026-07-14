@@ -126,7 +126,7 @@ Version 0.4.2 returns `schema_version: 3`. The response includes `version`, `sch
 
 ## Chinvat adapter integration
 
-The TypeScript `wordpress` adapter version 0.3.1 calls the Bridge through normal Chinvat jobs and policy. Its separate core REST surface handles posts, pages, media-library management, and block navigation; the Bridge surface exposes 19 fixed operations: `bridge_info`, the original ten ability mappings, and eight DB-layer mappings (`bridge_db_state`, `bridge_global_styles_*`, and `bridge_template_*`). `bridge_info` returns the handshake; the other 18 call the corresponding known ability with the contract below:
+The TypeScript `wordpress` adapter version 0.4.0 calls the Bridge through normal Chinvat jobs and policy. Its separate core REST surface handles posts, pages, media-library management, and block navigation; the Bridge surface exposes 19 fixed operations: `bridge_info`, the original ten ability mappings, and eight DB-layer mappings (`bridge_db_state`, `bridge_global_styles_*`, and `bridge_template_*`). `bridge_info` returns the handshake; the other 18 call the corresponding known ability with the contract below:
 
 ```text
 read:                    GET    /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
