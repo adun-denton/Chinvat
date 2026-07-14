@@ -119,6 +119,12 @@ function nonNegativeInteger(value: unknown, field: string): number {
   return id;
 }
 
+function positiveInteger(value: unknown, field: string): number {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id < 1) throw new AdapterError(`${field} must be a positive integer`);
+  return id;
+}
+
 function mediaId(value: unknown): number {
   return nonNegativeInteger(value, 'featured_media');
 }
@@ -490,7 +496,7 @@ const adapter: ChinvatAdapter = {
   name: 'wordpress',
   version: '0.3.1',
   description:
-    'WordPress via REST API — posts, pages, media, taxonomy. Optional Chinvat WP Bridge companion plugin adds options, theme file I/O, DB-layer Global Styles and template overrides (the layer that wins at runtime), RankMath and plugin management (bridge_* ops). Publishing and theme writes are gated as dangerous.',
+    'WordPress via REST API — posts, pages, media, taxonomy and block navigation. Optional Chinvat WP Bridge companion plugin adds options, theme file I/O, DB-layer Global Styles and template overrides (the layer that wins at runtime), RankMath and plugin management (bridge_* ops). Publishing, deletion, live navigation and theme writes are gated as dangerous.',
   configSchema: [
     { key: 'siteUrl', label: 'Site URL', type: 'string', required: true, placeholder: 'https://example.com' },
     { key: 'username', label: 'Username', type: 'string', required: true },
@@ -592,6 +598,42 @@ const adapter: ChinvatAdapter = {
           per_page: { type: 'number' },
         },
       },
+      {
+        name: 'list_media',
+        description: 'List media-library attachments.',
+        risk: 'read',
+        params: {
+          search: { type: 'string' },
+          media_type: { type: 'string', description: 'image|video|audio|application' },
+          mime_type: { type: 'string' },
+          parent: { type: 'number', description: 'parent post/page ID; 0 means unattached' },
+          page: { type: 'number' },
+          per_page: { type: 'number' },
+        },
+      },
+      { name: 'get_media', description: 'One media item with editable metadata.', risk: 'read', params: { id: { type: 'number', required: true } } },
+      {
+        name: 'update_media',
+        description: 'Update media metadata; does not replace file bytes.',
+        risk: 'act',
+        params: {
+          id: { type: 'number', required: true },
+          title: { type: 'string' },
+          caption: { type: 'string' },
+          description: { type: 'string' },
+          alt_text: { type: 'string' },
+          parent: { type: 'number', description: 'parent post/page ID; 0 detaches' },
+        },
+      },
+      {
+        name: 'delete_media',
+        description: 'Permanently delete media. Requires force=true because WordPress attachments do not support trash.',
+        risk: 'dangerous',
+        params: {
+          id: { type: 'number', required: true },
+          force: { type: 'boolean', required: true, description: 'must be true' },
+        },
+      },
       { name: 'get_page', description: 'One page with raw editable content.', risk: 'read', params: { id: { type: 'number', required: true } } },
       {
         name: 'update_page',
@@ -619,6 +661,24 @@ const adapter: ChinvatAdapter = {
         description: 'Trash a page.',
         risk: 'dangerous',
         params: { id: { type: 'number', required: true } },
+      },
+      {
+        name: 'list_navigation',
+        description: 'List block-theme wp_navigation records.',
+        risk: 'read',
+        params: { search: { type: 'string' }, page: { type: 'number' }, per_page: { type: 'number' } },
+      },
+      { name: 'get_navigation', description: 'One navigation record with raw editable block markup.', risk: 'read', params: { id: { type: 'number', required: true } } },
+      {
+        name: 'update_navigation',
+        description: 'Update an existing navigation record. Changes to a published menu can affect the live site immediately.',
+        risk: 'dangerous',
+        params: {
+          id: { type: 'number', required: true },
+          title: { type: 'string' },
+          content: { type: 'string', description: 'navigation block markup' },
+          slug: { type: 'string' },
+        },
       },
     ];
     const bridge: OperationSpec[] = BRIDGE_OPS.map((b) => ({
@@ -786,9 +846,75 @@ const adapter: ChinvatAdapter = {
             method: 'POST',
             headers,
             body: JSON.stringify({ alt_text: args.alt_text }),
+            signal: ctx.signal,
           }).catch(() => undefined);
         }
         return { output: { id: r.id, source_url: r.source_url } };
+      }
+      case 'list_media': {
+        const q = new URLSearchParams();
+        if (args.search) q.set('search', String(args.search));
+        if (args.media_type) q.set('media_type', String(args.media_type));
+        if (args.mime_type) q.set('mime_type', String(args.mime_type));
+        if (args.parent !== undefined) q.set('parent', String(nonNegativeInteger(args.parent, 'parent')));
+        if (args.page !== undefined) q.set('page', String(positiveInteger(args.page, 'page')));
+        q.set('per_page', String(Math.min(Math.max(Number(args.per_page ?? 10), 1), 50)));
+        const r = await jsonFetch(`${base}/media?${q}`, { headers, signal: ctx.signal });
+        return {
+          output: (r as any[]).map((m) => ({
+            id: m.id,
+            date: m.date,
+            title: m.title?.rendered,
+            alt_text: m.alt_text,
+            media_type: m.media_type,
+            mime_type: m.mime_type,
+            source_url: m.source_url,
+            parent: m.post,
+          })),
+        };
+      }
+      case 'get_media': {
+        const id = positiveInteger(args.id, 'id');
+        const r = await jsonFetch(`${base}/media/${id}?context=edit`, { headers, signal: ctx.signal });
+        return {
+          output: {
+            id: r.id,
+            date: r.date,
+            title: r.title?.raw ?? r.title?.rendered,
+            caption: r.caption?.raw ?? r.caption?.rendered,
+            description: r.description?.raw ?? r.description?.rendered,
+            alt_text: r.alt_text,
+            media_type: r.media_type,
+            mime_type: r.mime_type,
+            source_url: r.source_url,
+            parent: r.post,
+          },
+        };
+      }
+      case 'update_media': {
+        const id = positiveInteger(args.id, 'id');
+        const body: Record<string, unknown> = {};
+        for (const k of ['title', 'caption', 'description', 'alt_text'] as const)
+          if (args[k] !== undefined) body[k] = args[k];
+        if (args.parent !== undefined) body.post = nonNegativeInteger(args.parent, 'parent');
+        if (!Object.keys(body).length) throw new AdapterError('nothing to update');
+        const r = await jsonFetch(`${base}/media/${id}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: ctx.signal,
+        });
+        return { output: { id: r.id, title: r.title?.rendered, alt_text: r.alt_text, source_url: r.source_url, parent: r.post } };
+      }
+      case 'delete_media': {
+        const id = positiveInteger(args.id, 'id');
+        if (args.force !== true) throw new AdapterError('delete_media requires force=true');
+        const r = await jsonFetch(`${base}/media/${id}?force=true`, {
+          method: 'DELETE',
+          headers,
+          signal: ctx.signal,
+        });
+        return { output: { id: r.previous?.id ?? id, deleted: r.deleted === true } };
       }
       case 'list_categories': {
         const r = await jsonFetch(`${base}/categories?per_page=100`, { headers, signal: ctx.signal });
@@ -874,6 +1000,39 @@ const adapter: ChinvatAdapter = {
           signal: ctx.signal,
         });
         return { output: { id: r.id, status: r.status } };
+      }
+      case 'list_navigation': {
+        const q = new URLSearchParams({ context: 'edit' });
+        if (args.search) q.set('search', String(args.search));
+        if (args.page !== undefined) q.set('page', String(positiveInteger(args.page, 'page')));
+        q.set('per_page', String(Math.min(Math.max(Number(args.per_page ?? 10), 1), 50)));
+        const r = await jsonFetch(`${base}/navigation?${q}`, { headers, signal: ctx.signal });
+        return { output: (r as any[]).map(slim) };
+      }
+      case 'get_navigation': {
+        const id = positiveInteger(args.id, 'id');
+        const r = await jsonFetch(`${base}/navigation/${id}?context=edit`, { headers, signal: ctx.signal });
+        return {
+          output: {
+            ...slim(r),
+            title: r.title?.raw ?? r.title?.rendered,
+            content: r.content?.raw ?? r.content?.rendered,
+            slug: r.slug,
+          },
+        };
+      }
+      case 'update_navigation': {
+        const id = positiveInteger(args.id, 'id');
+        const body: Record<string, unknown> = {};
+        for (const k of ['title', 'content', 'slug'] as const) if (args[k] !== undefined) body[k] = args[k];
+        if (!Object.keys(body).length) throw new AdapterError('nothing to update');
+        const r = await jsonFetch(`${base}/navigation/${id}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: ctx.signal,
+        });
+        return { output: slim(r) };
       }
       default:
         unknownOp('wordpress', op);

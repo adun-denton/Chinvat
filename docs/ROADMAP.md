@@ -3,7 +3,7 @@
 ## v0.2 — routing & reach
 - **WordPress bridge delivered:** v0.1.2 security hardening ✓; v0.2.0 Developer Mode/toggles ✓; v0.3.x block-aware child-theme scaffold/loader ✓; v0.4.0–0.4.2 DB-layer state, Global Styles, and template/part primitives ✓. The plugin exposes 18 Abilities plus the authenticated schema-3 handshake.
 - **WordPress adapter extension delivered ✓:** 19 static `bridge_*` operations (handshake + 18 abilities) use the verified GET / DELETE-query / POST-body Abilities contract through normal Chinvat jobs/policy.
-- **WordPress core REST editing delivered ✓:** adapter 0.3.1 adds `get_page`/`update_page`, featured-media fields for post/page drafts and updates, authenticated-connector base64 media handoff, and bounded SSRF-aware public URL ingestion.
+- **WordPress core REST editing delivered ✓:** adapter 0.3.1 adds `get_page`/`update_page`, block-navigation list/read/update, media list/read/metadata-update/permanent-delete, featured-media fields for post/page drafts and updates, authenticated-connector base64 media handoff, and bounded SSRF-aware public URL ingestion.
 - **Next WordPress slice:** export/snapshot-on-approval—read verified DB overrides, write them into child-theme files, commit to the site's GitHub repository, then reset the DB overrides so files become authoritative.
 - **Later WordPress slices:** cache purge, named site targets, revisions, coherence operations; separately gated `file-write` and `wp-cli`; RankMath sitewide controls (redirections, 404 monitor, sitemap, modules); plugin install/update/delete.
 - `module:"auto"`: route by task type, cost, latency, context window, availability, historical success (metrics already captured per job in v0.1).

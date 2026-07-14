@@ -197,7 +197,7 @@ No app process lifecycle management (launching Blender/GIMP — user opens the a
 4. **Rhino** — bonus to 3D modelling; protocol evaluation (§5) when it starts.
 5. Grok adversarial pass gates each commit, as with the scaffold.
 
-**WordPress pause was superseded on 2026-07-14:** live usage resumed the track. Bridge 0.4.2 and adapter 0.3.1 now ship DB-layer state plus Global Styles and Site Editor template/part get/update/reset primitives; core REST also supports existing-page editing, featured media, and bounded URL/base64 media ingestion. The next WordPress slice is export/snapshot-on-approval; the local-app build order above remains unchanged. The Bridge validation/deployment target is `ehsanmaghsoudi.com`; the 1260 site remains on EasyMCP and is outside this track.
+**WordPress pause was superseded on 2026-07-14:** live usage resumed the track. Bridge 0.4.2 and adapter 0.3.1 now ship DB-layer state plus Global Styles and Site Editor template/part get/update/reset primitives; core REST also supports existing-page editing, block-navigation editing, media-library management, featured media, and bounded URL/base64 media ingestion. The next WordPress slice is export/snapshot-on-approval; the local-app build order above remains unchanged. The Bridge validation/deployment target is `ehsanmaghsoudi.com`; the 1260 site remains on EasyMCP and is outside this track.
 
 ## 9. Resolved questions (operator, 2026-07-13)
 

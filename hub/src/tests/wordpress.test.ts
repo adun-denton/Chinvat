@@ -47,7 +47,7 @@ function mockJsonFetch(handler: (call: Captured) => unknown): Captured[] {
   return calls;
 }
 
-test('capabilities expose editable pages, dual-source media and featured media', () => {
+test('capabilities expose editable pages, media management, navigation and featured media', () => {
   const specs = new Map(wordpress.capabilities().map((spec) => [spec.name, spec]));
   assert.equal(specs.get('get_page')?.risk, 'read');
   assert.equal(specs.get('update_page')?.risk, 'act');
@@ -57,6 +57,13 @@ test('capabilities expose editable pages, dual-source media and featured media',
   assert.ok(specs.get('update_post')?.params.featured_media);
   assert.ok(specs.get('create_page')?.params.featured_media);
   assert.ok(specs.get('update_page')?.params.featured_media);
+  assert.equal(specs.get('list_media')?.risk, 'read');
+  assert.equal(specs.get('get_media')?.risk, 'read');
+  assert.equal(specs.get('update_media')?.risk, 'act');
+  assert.equal(specs.get('delete_media')?.risk, 'dangerous');
+  assert.equal(specs.get('list_navigation')?.risk, 'read');
+  assert.equal(specs.get('get_navigation')?.risk, 'read');
+  assert.equal(specs.get('update_navigation')?.risk, 'dangerous');
 });
 
 test('get_page retrieves raw editable fields with context=edit', async () => {
@@ -117,6 +124,88 @@ test('upload_media accepts bounded base64 bytes for authenticated Drive workflow
   assert.equal(calls[0].init.headers && (calls[0].init.headers as Record<string, string>)['Content-Type'], 'image/png');
   assert.equal(Buffer.from(calls[0].init.body as Uint8Array).toString(), 'png-bytes');
   assert.equal((result.output as any).id, 55);
+});
+
+test('media library operations read raw metadata and make bounded metadata updates', async () => {
+  const calls = mockJsonFetch((call) => {
+    if (call.url.includes('/media/6?context=edit')) {
+      return {
+        id: 6,
+        title: { raw: 'Source title' },
+        caption: { raw: 'Caption' },
+        description: { raw: 'Description' },
+        alt_text: 'Alt',
+        media_type: 'image',
+        mime_type: 'image/webp',
+        source_url: 'https://wp.example/file.webp',
+        post: 0,
+      };
+    }
+    return {
+      id: 6,
+      title: { rendered: 'Changed' },
+      alt_text: 'New alt',
+      source_url: 'https://wp.example/file.webp',
+      post: 25,
+    };
+  });
+  const item = await wordpress.invoke('get_media', { id: 6 }, ctx());
+  assert.equal((item.output as any).title, 'Source title');
+  assert.equal((item.output as any).description, 'Description');
+  await wordpress.invoke('update_media', { id: 6, alt_text: 'New alt', parent: 25 }, ctx());
+  assert.deepEqual(JSON.parse(String(calls[1].init.body)), { alt_text: 'New alt', post: 25 });
+  assert.equal((item.output as any).parent, 0);
+  await assert.rejects(() => wordpress.invoke('update_media', { id: 6 }, ctx()), /nothing to update/);
+});
+
+test('media and navigation lists forward bounded pagination and filters', async () => {
+  const calls = mockJsonFetch(() => []);
+  await wordpress.invoke(
+    'list_media',
+    { search: 'portrait', media_type: 'image', mime_type: 'image/webp', parent: 0, page: 2, per_page: 25 },
+    ctx()
+  );
+  const mediaUrl = new URL(calls[0].url);
+  assert.equal(mediaUrl.searchParams.get('search'), 'portrait');
+  assert.equal(mediaUrl.searchParams.get('media_type'), 'image');
+  assert.equal(mediaUrl.searchParams.get('mime_type'), 'image/webp');
+  assert.equal(mediaUrl.searchParams.get('parent'), '0');
+  assert.equal(mediaUrl.searchParams.get('page'), '2');
+  assert.equal(mediaUrl.searchParams.get('per_page'), '25');
+  await wordpress.invoke('list_navigation', { page: 3, per_page: 20 }, ctx());
+  const navigationUrl = new URL(calls[1].url);
+  assert.equal(navigationUrl.searchParams.get('context'), 'edit');
+  assert.equal(navigationUrl.searchParams.get('page'), '3');
+  assert.equal(navigationUrl.searchParams.get('per_page'), '20');
+});
+
+test('delete_media requires explicit permanent-deletion intent', async () => {
+  const calls = mockJsonFetch(() => ({ deleted: true, previous: { id: 6 } }));
+  await assert.rejects(() => wordpress.invoke('delete_media', { id: 6, force: false }, ctx()), /force=true/);
+  const result = await wordpress.invoke('delete_media', { id: 6, force: true }, ctx());
+  assert.equal(calls[0].url, 'https://wp.example/wp-json/wp/v2/media/6?force=true');
+  assert.equal(calls[0].init.method, 'DELETE');
+  assert.deepEqual(result.output, { id: 6, deleted: true });
+});
+
+test('navigation reads raw block markup and treats live-menu updates as explicit operations', async () => {
+  const calls = mockJsonFetch((call) =>
+    call.url.includes('?context=edit')
+      ? {
+          id: 4,
+          status: 'publish',
+          title: { raw: 'Primary' },
+          content: { raw: '<!-- wp:navigation-link {"label":"Home","url":"/"} /-->' },
+          slug: 'primary',
+        }
+      : { id: 4, status: 'publish', title: { rendered: 'Primary' } }
+  );
+  const item = await wordpress.invoke('get_navigation', { id: 4 }, ctx());
+  assert.match((item.output as any).content, /wp:navigation-link/);
+  await wordpress.invoke('update_navigation', { id: 4, content: '<!-- wp:page-list /-->' }, ctx());
+  assert.equal(calls[1].url, 'https://wp.example/wp-json/wp/v2/navigation/4');
+  assert.deepEqual(JSON.parse(String(calls[1].init.body)), { content: '<!-- wp:page-list /-->' });
+  await assert.rejects(() => wordpress.invoke('update_navigation', { id: 4 }, ctx()), /nothing to update/);
 });
 
 test('media filenames remain header-safe when Drive supplies Unicode names', () => {
