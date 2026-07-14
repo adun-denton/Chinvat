@@ -239,9 +239,9 @@ async function runBridgeAbility(
       q.set(`input[${k}]`, typeof v === 'object' ? JSON.stringify(v) : String(v));
     }
     // The Abilities run route requires an input object even on GET; send
-    // input={} (JSON-in-query, accepted by rest_is_object) when there are no keys.
+    // a bare input= (empty string passes rest_is_object and sanitizes to []) when there are no keys.
     const qs = q.toString();
-    return jsonFetch(`${runUrl}?${qs || 'input=%7B%7D'}`, { headers, signal });
+    return jsonFetch(`${runUrl}?${qs || 'input='}`, { headers, signal });
   }
   // act | dangerous -> POST { input }
   return jsonFetch(runUrl, {
