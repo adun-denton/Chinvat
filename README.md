@@ -83,9 +83,11 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `telegram` | full (incl. approval buttons) | bot token |
 | `wordpress` | full | site URL + application password |
 | `system` (Windows/shell/files) | full | policy tier ≥ approve for writes |
+| `coolify` | v0.1.0 | Coolify URL + scoped API token |
 | `blender` | v0.1.0 | Blender + enabled bridge add-on; one Connect click |
 | `orca` | v0.1.0 | CLI-capable Orca-lineage slicer + configured paths |
 | `gimp` | v0.1.0 | GIMP 3 + user-installed GPL plug-in; per-session start |
+| `rhino` | v0.1.0 | Rhino 8 + installed bridge script |
 | `whatsapp` (Cloud API) | token-config | Meta app token + phone number ID |
 | `facebook` (Pages) | token-config | page access token |
 | `instagram` (Graph) | token-config | IG user ID + token |

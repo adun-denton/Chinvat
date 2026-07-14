@@ -28,6 +28,7 @@ const DEFAULT_TIERS: Record<string, Tier> = {
   instagram: 'approve',
   linkedin: 'approve',
   x: 'approve',
+  coolify: 'approve',
   'openai-compatible': 'autonomous',
 };
 

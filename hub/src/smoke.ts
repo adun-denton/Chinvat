@@ -53,9 +53,11 @@ async function main(): Promise<void> {
 
   // 2. discovery
   const workers = parseTool(await client.callTool({ name: 'workers_list', arguments: { include_disabled: true } }));
-  check('14 modules discoverable', Array.isArray(workers) && workers.length === 14);
+  check('16 modules discoverable', Array.isArray(workers) && workers.length === 16);
   const sys = workers.find((w: any) => w.name === 'system');
   check('system module defaults to approve tier', sys?.tier === 'approve');
+  const coolify = workers.find((w: any) => w.name === 'coolify');
+  check('coolify module defaults to disabled + approve', coolify?.enabled === false && coolify?.tier === 'approve');
 
   // 3. capabilities
   const caps = parseTool(await client.callTool({ name: 'capabilities_describe', arguments: { module: 'system' } }));

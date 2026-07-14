@@ -2,7 +2,7 @@
 
 Every module is configured on the dashboard's **Modules** page. Secrets are stored only in `data/chinvat.config.json` on your machine and are sent only to the service they belong to. Each module has a policy **tier** (observe / approve / autonomous) — see the [README](../README.md#policy-what-crosses-the-bridge). Every card has a **Test connection** button that re-runs the module's health check.
 
-The 14 built-ins are `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `blender`, `orca`, `gimp`, `whatsapp`, `facebook`, `instagram`, `linkedin`, and `x`. The first-boot enabled set is `ollama`, `openrouter`, `system`, `telegram`, and `wordpress`; the remaining modules are disabled until configured.
+The 16 built-ins are `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, and `x`. The first-boot enabled set is `ollama`, `openrouter`, `system`, `telegram`, and `wordpress`; the remaining modules are disabled until configured.
 
 ## ollama — local models
 Install [Ollama](https://ollama.com) and pull a model (`ollama pull qwen3`). Fields: `Base URL` (default `http://127.0.0.1:11434`) and `Default model` (default `qwen3`). Operations: `chat`, `generate`, `embeddings`, `list_models`, `pull_model`. Default tier: autonomous; `pull_model` is `act`, while the other operations are `read`.
@@ -17,6 +17,9 @@ One reusable worker for **NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, 
 
 ## system — the Windows machine
 Runs PowerShell commands and file operations, fenced to **allowedRoot** (your home directory by default; widen it or set `allowFullAccess` deliberately). Operations include `run_command` and `delete_path` (both `dangerous`), `read_file`/`write_file`/`move_path`, `open_app`, `process_list`, `system_info`. Default tier: **approve** — dangerous ops wait for you.
+
+## coolify — managed server workloads
+Connects to a self-hosted Coolify instance through its scoped API. Fields: `Coolify URL`, `API token`, and optional request timeout. Inventory covers servers, server resources, projects, applications, databases, services, and deployments; `infrastructure_overview` returns compact counts and workload statuses. Lifecycle operations deploy, validate, start, restart, stop, or cancel supported Coolify resources. The module is disabled by default and defaults to **approve**: reads run immediately, deploy/start/restart/validate wait for approval, and downtime-causing stop/cancel operations are marked `dangerous`. Use a team-scoped token with `read` plus only the needed `deploy`/`write` permissions; do not use `root`. This worker controls resources known to Coolify, not OpenStack VM, volume, network, or security-group APIs.
 
 ## blender — local 3D scenes
 Version `0.1.0` controls Blender through the pinned [Blender bridge add-on](../app-bridges/blender/README.md), over TCP `127.0.0.1:9876`. Install and enable the add-on, then in the 3D-viewport sidebar (**N**) open the **BlenderMCP** tab and select **Connect to Claude**. The adapter bypasses the add-on's MCP server and speaks its socket protocol directly. Fields: `host` (default `127.0.0.1`), `port` (default `9876`), and `python_enabled` (default off). Operations: `scene_info`, `object_info`, `viewport_snapshot` (PNG artifact for visual verification), and `execute_python` (arbitrary `bpy`, `dangerous`). `execute_python` is local code execution by design: it needs both the module's `python_enabled` opt-in and the normal policy approval path.
