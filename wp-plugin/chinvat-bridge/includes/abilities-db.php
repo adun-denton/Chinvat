@@ -288,42 +288,27 @@ function chinvat_bridge_register_db_abilities(): void {
 					return new WP_Error( 'chinvat_encode', __( 'Could not encode config as JSON.', 'chinvat-bridge' ) );
 				}
 
+				// wp_update_post on a wp_global_styles post hard-crashes PHP on some
+				// hosts (a save-path filter hangs on this CPT), while insert and delete
+				// are reliable. So an update is: hard-delete the old post, reinsert the
+				// full config. Revisions are lost; Git is the source of truth anyway.
 				if ( $post ) {
-					$r = chinvat_bridge_write_post_unfiltered(
-						array(
-							'ID'           => $post->ID,
-							'post_content' => $json,
-						),
-						true
-					);
-				} elseif ( class_exists( 'WP_Theme_JSON_Resolver' ) && method_exists( 'WP_Theme_JSON_Resolver', 'get_user_global_styles_post_id' ) ) {
-					// Let core create the post with its own naming/taxonomy wiring.
-					$pid = (int) WP_Theme_JSON_Resolver::get_user_global_styles_post_id();
-					$r   = chinvat_bridge_write_post_unfiltered(
-						array(
-							'ID'           => $pid,
-							'post_content' => $json,
-						),
-						true
-					);
-				} else {
-					$r = chinvat_bridge_write_post_unfiltered(
-						array(
-							'post_type'    => 'wp_global_styles',
-							'post_status'  => 'publish',
-							'post_title'   => 'Custom Styles',
-							'post_name'    => 'wp-global-styles-' . rawurlencode( get_stylesheet() ),
-							'post_content' => $json,
-						),
-						false
-					);
-					if ( ! is_wp_error( $r ) ) {
-						wp_set_object_terms( (int) $r, array( get_stylesheet() ), 'wp_theme', false );
-					}
+					wp_delete_post( $post->ID, true );
 				}
+				$r = chinvat_bridge_write_post_unfiltered(
+					array(
+						'post_type'    => 'wp_global_styles',
+						'post_status'  => 'publish',
+						'post_title'   => 'Custom Styles',
+						'post_name'    => 'wp-global-styles-' . rawurlencode( get_stylesheet() ),
+						'post_content' => $json,
+					),
+					false
+				);
 				if ( is_wp_error( $r ) ) {
 					return $r;
 				}
+				wp_set_object_terms( (int) $r, array( get_stylesheet() ), 'wp_theme', false );
 				chinvat_bridge_flush_theme_json_cache();
 				return array(
 					'post_id' => (int) $r,
@@ -362,7 +347,7 @@ function chinvat_bridge_register_db_abilities(): void {
 						'note'  => 'No user Global Styles override exists; theme.json is already authoritative.',
 					);
 				}
-				$force = ! empty( $input['force'] );
+				$force = rest_sanitize_boolean( $input['force'] ?? false );
 				$r     = $force ? wp_delete_post( $post->ID, true ) : wp_trash_post( $post->ID );
 				if ( ! $r ) {
 					return new WP_Error( 'chinvat_reset_failed', __( 'Could not remove the Global Styles post.', 'chinvat-bridge' ) );
@@ -584,7 +569,7 @@ function chinvat_bridge_register_db_abilities(): void {
 						'note'  => 'No DB override exists; the theme file is already authoritative.',
 					);
 				}
-				$force = ! empty( $input['force'] );
+				$force = rest_sanitize_boolean( $input['force'] ?? false );
 				$r     = $force ? wp_delete_post( (int) $t->wp_id, true ) : wp_trash_post( (int) $t->wp_id );
 				if ( ! $r ) {
 					return new WP_Error( 'chinvat_reset_failed', __( 'Could not remove the template override post.', 'chinvat-bridge' ) );
