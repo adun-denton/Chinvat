@@ -57,6 +57,7 @@ function chinvat_bridge_info_response(): WP_REST_Response {
 			'options_update'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'options_update' ),
 			'plugins_toggle'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'plugins_toggle' ),
 			'child_scaffold'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'child_scaffold' ),
+			'db_layer'             => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'db_layer' ),
 			'relax_option_denylist' => function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_option_denylist' ),
 			'relax_backup'         => function_exists( 'chinvat_bridge_expert' ) && chinvat_bridge_expert( 'relax_backup' ),
 		),
@@ -95,5 +96,13 @@ function chinvat_bridge_capability_index(): array {
 		array( 'name' => 'chinvat-bridge/plugins-list',   'risk' => 'read',      'cap' => 'activate_plugins' ),
 		array( 'name' => 'chinvat-bridge/plugins-toggle', 'risk' => 'act',       'cap' => 'activate_plugins' ),
 		array( 'name' => 'chinvat-bridge/theme-scaffold-child', 'risk' => 'dangerous', 'cap' => 'edit_themes' ),
+		array( 'name' => 'chinvat-bridge/db-state',            'risk' => 'read', 'cap' => 'edit_theme_options' ),
+		array( 'name' => 'chinvat-bridge/global-styles-get',   'risk' => 'read', 'cap' => 'edit_theme_options' ),
+		array( 'name' => 'chinvat-bridge/global-styles-update','risk' => 'act',  'cap' => 'edit_theme_options' ),
+		array( 'name' => 'chinvat-bridge/global-styles-reset', 'risk' => 'act',  'cap' => 'edit_theme_options' ),
+		array( 'name' => 'chinvat-bridge/template-list',       'risk' => 'read', 'cap' => 'edit_theme_options' ),
+		array( 'name' => 'chinvat-bridge/template-get',        'risk' => 'read', 'cap' => 'edit_theme_options' ),
+		array( 'name' => 'chinvat-bridge/template-update',     'risk' => 'act',  'cap' => 'edit_theme_options' ),
+		array( 'name' => 'chinvat-bridge/template-reset',      'risk' => 'act',  'cap' => 'edit_theme_options' ),
 	);
 }

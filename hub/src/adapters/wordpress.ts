@@ -131,6 +131,80 @@ const BRIDGE_OPS: BridgeOp[] = [
       activate: { type: 'boolean', description: 'switch the live site to the child (default true)' },
     },
   },
+  {
+    op: 'bridge_db_state',
+    ability: 'chinvat-bridge/db-state',
+    risk: 'read',
+    description: 'Which layer owns rendering right now: user Global Styles post, DB template/part overrides, active theme identity. Call before styling work to know where to write.',
+    params: {},
+  },
+  {
+    op: 'bridge_global_styles_get',
+    ability: 'chinvat-bridge/global-styles-get',
+    risk: 'read',
+    description: 'Read the user Global Styles config (wp_global_styles post) — the DB styles layer that overrides theme.json at runtime.',
+    params: {},
+  },
+  {
+    op: 'bridge_global_styles_update',
+    ability: 'chinvat-bridge/global-styles-update',
+    risk: 'act',
+    description: 'Write the user Global Styles config (theme.json-shaped). merge=true deep-merges; default replaces. Writes the layer that actually renders; needs db_layer toggle.',
+    params: {
+      styles: { type: 'object', required: true, description: 'theme.json-shaped config (settings/styles), object or JSON string' },
+      merge: { type: 'boolean', description: 'deep-merge into existing config instead of replacing (default false)' },
+    },
+  },
+  {
+    op: 'bridge_global_styles_reset',
+    ability: 'chinvat-bridge/global-styles-reset',
+    risk: 'act',
+    description: 'Remove the user Global Styles override so theme.json files render again. Trashes (recoverable) unless force=true; needs db_layer toggle.',
+    params: {
+      force: { type: 'boolean', description: 'permanently delete instead of trashing (default false)' },
+    },
+  },
+  {
+    op: 'bridge_template_list',
+    ability: 'chinvat-bridge/template-list',
+    risk: 'read',
+    description: 'List block templates and template parts with source per item (theme file vs DB override).',
+    params: {},
+  },
+  {
+    op: 'bridge_template_get',
+    ability: 'chinvat-bridge/template-get',
+    risk: 'read',
+    description: 'Read one template/part as it resolves at runtime (DB override wins over theme file).',
+    params: {
+      type: { type: 'string', required: true, description: 'wp_template | wp_template_part' },
+      slug: { type: 'string', required: true },
+    },
+  },
+  {
+    op: 'bridge_template_update',
+    ability: 'chinvat-bridge/template-update',
+    risk: 'act',
+    description: 'Write block markup to the DB layer for a template/part (updates or creates the override) — the write that actually renders. Needs db_layer toggle.',
+    params: {
+      type: { type: 'string', required: true, description: 'wp_template | wp_template_part' },
+      slug: { type: 'string', required: true },
+      content: { type: 'string', required: true, description: 'block markup (HTML comments syntax)' },
+      title: { type: 'string' },
+      area: { type: 'string', description: 'parts only: header|footer|uncategorized (create only)' },
+    },
+  },
+  {
+    op: 'bridge_template_reset',
+    ability: 'chinvat-bridge/template-reset',
+    risk: 'act',
+    description: 'Remove the DB override for a template/part so the theme file renders again. Trashes (recoverable) unless force=true; needs db_layer toggle.',
+    params: {
+      type: { type: 'string', required: true, description: 'wp_template | wp_template_part' },
+      slug: { type: 'string', required: true },
+      force: { type: 'boolean', description: 'permanently delete instead of trashing (default false)' },
+    },
+  },
 ];
 
 const BRIDGE_OP_BY_NAME = new Map(BRIDGE_OPS.map((b) => [b.op, b]));
@@ -179,9 +253,9 @@ async function runBridgeAbility(
 
 const adapter: ChinvatAdapter = {
   name: 'wordpress',
-  version: '0.2.0',
+  version: '0.3.0',
   description:
-    'WordPress via REST API — posts, pages, media, taxonomy. Optional Chinvat WP Bridge companion plugin adds options, theme file I/O, RankMath and plugin management (bridge_* ops). Publishing and theme writes are gated as dangerous.',
+    'WordPress via REST API — posts, pages, media, taxonomy. Optional Chinvat WP Bridge companion plugin adds options, theme file I/O, DB-layer Global Styles and template overrides (the layer that wins at runtime), RankMath and plugin management (bridge_* ops). Publishing and theme writes are gated as dangerous.',
   configSchema: [
     { key: 'siteUrl', label: 'Site URL', type: 'string', required: true, placeholder: 'https://example.com' },
     { key: 'username', label: 'Username', type: 'string', required: true },

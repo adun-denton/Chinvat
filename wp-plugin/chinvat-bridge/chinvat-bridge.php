@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Chinvat WP Bridge
  * Description:       Extended admin surface (options, theme file IO, RankMath, plugin management) for the Chinvat MCP labor hub. Exposed as WordPress Abilities and a thin REST handshake, gated by capability + a Developer Mode toggle.
- * Version:           0.3.1
+ * Version:           0.4.0
  * Requires PHP:      7.4
  * Requires at least: 6.4
  * Author:            adun-denton
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CHINVAT_BRIDGE_VERSION', '0.3.1' );
+define( 'CHINVAT_BRIDGE_VERSION', '0.4.0' );
 define( 'CHINVAT_BRIDGE_SCHEMA_VERSION', 3 );
 define( 'CHINVAT_BRIDGE_REST_NS', 'chinvat-bridge/v1' );
 
@@ -31,6 +31,7 @@ if ( ! defined( 'CHINVAT_BRIDGE_ENABLE' ) ) {
 require_once __DIR__ . '/includes/settings.php';
 require_once __DIR__ . '/includes/security.php';
 require_once __DIR__ . '/includes/abilities.php';
+require_once __DIR__ . '/includes/abilities-db.php';
 require_once __DIR__ . '/includes/rest-info.php';
 
 /**
@@ -39,6 +40,8 @@ require_once __DIR__ . '/includes/rest-info.php';
  * on the same hook makes every ability fail category validation (returns null).
  */
 add_action( 'wp_abilities_api_categories_init', 'chinvat_bridge_register_categories' );
+add_action( 'wp_abilities_api_categories_init', 'chinvat_bridge_register_db_categories' );
 add_action( 'wp_abilities_api_init', 'chinvat_bridge_register_abilities' );
+add_action( 'wp_abilities_api_init', 'chinvat_bridge_register_db_abilities' );
 
 add_action( 'rest_api_init', 'chinvat_bridge_register_info_route' );

@@ -22,6 +22,7 @@ function chinvat_bridge_settings_get(): array {
 		'developer_mode'               => false,
 		'cap_theme_write'              => false,
 		'cap_child_scaffold'           => false,
+		'cap_db_layer'                 => false,
 		'cap_options_update'           => false,
 		'cap_plugins_toggle'           => false,
 		'cap_file_write'               => false,
@@ -116,6 +117,7 @@ function chinvat_bridge_sanitize_settings( $input ): array {
 		'developer_mode',
 		'cap_theme_write',
 		'cap_child_scaffold',
+		'cap_db_layer',
 		'cap_options_update',
 		'cap_plugins_toggle',
 		'cap_file_write',
@@ -156,6 +158,7 @@ function chinvat_bridge_render_settings_page(): void {
 					<?php chinvat_bridge_render_setting_row( 'developer_mode', __( 'Developer Mode', 'chinvat-bridge' ), __( 'Master switch. When off, all write abilities are inert.', 'chinvat-bridge' ) ); ?>
 					<?php chinvat_bridge_render_setting_row( 'cap_theme_write', __( 'Theme Write', 'chinvat-bridge' ), __( 'Lets an agent run arbitrary PHP as the web server user (RCE by design).', 'chinvat-bridge' ) ); ?>
 					<?php chinvat_bridge_render_setting_row( 'cap_child_scaffold', __( 'Child Theme Scaffold', 'chinvat-bridge' ), __( 'Lets an agent create and activate a child of the active theme as an update-proof target for theme writes.', 'chinvat-bridge' ) ); ?>
+					<?php chinvat_bridge_render_setting_row( 'cap_db_layer', __( 'DB Layer (Global Styles & Templates)', 'chinvat-bridge' ), __( 'Lets an agent edit and reset user Global Styles and Site-Editor template/part overrides — the database layer that wins over theme files at runtime.', 'chinvat-bridge' ) ); ?>
 					<?php chinvat_bridge_render_setting_row( 'cap_options_update', __( 'Options Update', 'chinvat-bridge' ), __( 'Allows the agent to modify WordPress options (denylist-guarded).', 'chinvat-bridge' ) ); ?>
 					<?php chinvat_bridge_render_setting_row( 'cap_plugins_toggle', __( 'Plugins Toggle', 'chinvat-bridge' ), __( 'Enables activating/deactivating plugins.', 'chinvat-bridge' ) ); ?>
 					<?php chinvat_bridge_render_setting_row( 'cap_file_write', __( 'File Write (wp-content)', 'chinvat-bridge' ), __( 'Reserved for a later version: whole-site file writes under wp-content.', 'chinvat-bridge' ) ); ?>
