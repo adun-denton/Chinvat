@@ -53,7 +53,7 @@ async function main(): Promise<void> {
 
   // 2. discovery
   const workers = parseTool(await client.callTool({ name: 'workers_list', arguments: { include_disabled: true } }));
-  check('11 modules discoverable', Array.isArray(workers) && workers.length === 11);
+  check('14 modules discoverable', Array.isArray(workers) && workers.length === 14);
   const sys = workers.find((w: any) => w.name === 'system');
   check('system module defaults to approve tier', sys?.tier === 'approve');
 

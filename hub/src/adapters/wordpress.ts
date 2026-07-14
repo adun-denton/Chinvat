@@ -1,5 +1,215 @@
+import { lookup as dnsLookup } from 'node:dns/promises';
+import * as http from 'node:http';
+import * as https from 'node:https';
+import { isIP } from 'node:net';
+import { Readable } from 'node:stream';
 import { AdapterError, type ChinvatAdapter, type OperationSpec, type Risk } from '../types.js';
 import { cfgStr, jsonFetch, msg, requireConfig, unknownOp } from './util.js';
+
+export const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+const MAX_MEDIA_REDIRECTS = 5;
+
+type ResolveHost = (hostname: string) => Promise<string[]>;
+type FetchMedia = (input: string | URL, init?: RequestInit) => Promise<Response>;
+
+const defaultResolveHost: ResolveHost = async (hostname) =>
+  (await dnsLookup(hostname, { all: true, verbatim: true })).map((entry) => entry.address);
+
+export function isPrivateAddress(address: string): boolean {
+  const lower = address.toLowerCase();
+  if (lower.startsWith('::ffff:')) return isPrivateAddress(lower.slice(7));
+  if (isIP(lower) === 6) {
+    return (
+      lower === '::' ||
+      lower === '::1' ||
+      lower.startsWith('fc') ||
+      lower.startsWith('fd') ||
+      /^fe[89ab]/.test(lower) ||
+      lower.startsWith('ff')
+    );
+  }
+  if (isIP(lower) !== 4) return true;
+  const [a, b] = lower.split('.').map(Number);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+async function publicAddresses(url: URL, resolveHost: ResolveHost): Promise<string[]> {
+  if (!['http:', 'https:'].includes(url.protocol))
+    throw new AdapterError('source_url must use http or https');
+  if (url.username || url.password) throw new AdapterError('source_url must not contain credentials');
+  const hostname = url.hostname.replace(/^\[|\]$/g, '');
+  const addresses = isIP(hostname) ? [hostname] : await resolveHost(hostname);
+  if (!addresses.length || addresses.some(isPrivateAddress))
+    throw new AdapterError('source_url resolves to a private or non-routable address');
+  return addresses;
+}
+
+function fetchPinnedMedia(url: URL, address: string, signal?: AbortSignal): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const client = url.protocol === 'https:' ? https : http;
+    const request = client.request(
+      {
+        protocol: url.protocol,
+        hostname: address,
+        port: url.port || undefined,
+        servername: url.protocol === 'https:' ? url.hostname.replace(/^\[|\]$/g, '') : undefined,
+        method: 'GET',
+        path: `${url.pathname}${url.search}`,
+        headers: { Host: url.host, 'Accept-Encoding': 'identity' },
+        signal,
+      },
+      (incoming) => {
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(incoming.headers)) {
+          if (value !== undefined) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+        }
+        resolve(
+          new Response(Readable.toWeb(incoming) as unknown as BodyInit, {
+            status: incoming.statusCode ?? 500,
+            statusText: incoming.statusMessage,
+            headers,
+          })
+        );
+      }
+    );
+    request.setTimeout(60_000, () => request.destroy(new Error('request timed out')));
+    request.once('error', reject);
+    request.end();
+  });
+}
+
+function normalizeMediaType(value: string | null | undefined): string {
+  return String(value ?? '').split(';', 1)[0].trim().toLowerCase();
+}
+
+export function isAllowedMediaType(value: string): boolean {
+  const type = normalizeMediaType(value);
+  return (
+    type.startsWith('image/') ||
+    type.startsWith('audio/') ||
+    type.startsWith('video/') ||
+    [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ].includes(type)
+  );
+}
+
+function checkedFilename(value: unknown): string {
+  const filename = String(value ?? '').trim();
+  if (!filename || filename.length > 200 || /[\r\n"\\/]/.test(filename))
+    throw new AdapterError('filename is required and must be a plain filename of at most 200 characters');
+  return filename;
+}
+
+function nonNegativeInteger(value: unknown, field: string): number {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id < 0) throw new AdapterError(`${field} must be a non-negative integer`);
+  return id;
+}
+
+function mediaId(value: unknown): number {
+  return nonNegativeInteger(value, 'featured_media');
+}
+
+export function mediaContentDisposition(filename: string): string {
+  const fallback = filename
+    .normalize('NFKD')
+    .replace(/[^\x20-\x7e]/g, '_')
+    .replace(/["\\]/g, '_');
+  return `attachment; filename="${fallback || 'upload.bin'}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+function filenameFromUrl(url: URL): string {
+  const last = url.pathname.split('/').pop() || 'upload.bin';
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    throw new AdapterError('source_url contains an invalid encoded filename');
+  }
+}
+
+async function readResponseCapped(res: Response, maxBytes: number): Promise<Buffer> {
+  const declared = Number(res.headers.get('content-length') ?? 0);
+  if (Number.isFinite(declared) && declared > maxBytes)
+    throw new AdapterError(`media exceeds the ${maxBytes}-byte limit`);
+  if (!res.body) return Buffer.alloc(0);
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new AdapterError(`media exceeds the ${maxBytes}-byte limit`);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), total);
+}
+
+export async function fetchPublicMedia(
+  sourceUrl: string,
+  signal?: AbortSignal,
+  deps: { fetchImpl?: FetchMedia; resolveHost?: ResolveHost; maxBytes?: number } = {}
+): Promise<{ buffer: Buffer; mediaType: string; finalUrl: URL }> {
+  const resolveHost = deps.resolveHost ?? defaultResolveHost;
+  const maxBytes = deps.maxBytes ?? MAX_MEDIA_BYTES;
+  let url: URL;
+  try {
+    url = new URL(sourceUrl);
+  } catch {
+    throw new AdapterError('source_url is not a valid URL');
+  }
+  for (let redirects = 0; redirects <= MAX_MEDIA_REDIRECTS; redirects++) {
+    const addresses = await publicAddresses(url, resolveHost);
+    let res: Response;
+    try {
+      res = deps.fetchImpl
+        ? await deps.fetchImpl(url, { redirect: 'manual', signal })
+        : await fetchPinnedMedia(url, addresses[0], signal);
+    } catch (error) {
+      throw new AdapterError(`could not fetch source_url: ${msg(error)}`);
+    }
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      if (redirects === MAX_MEDIA_REDIRECTS) throw new AdapterError('source_url exceeded the redirect limit');
+      const location = res.headers.get('location');
+      if (!location) throw new AdapterError('source_url redirect omitted the location header');
+      url = new URL(location, url);
+      continue;
+    }
+    if (!res.ok) throw new AdapterError(`could not fetch source_url (HTTP ${res.status})`);
+    const mediaType = normalizeMediaType(res.headers.get('content-type'));
+    if (!isAllowedMediaType(mediaType))
+      throw new AdapterError(`unsupported media type '${mediaType || 'missing'}'`);
+    return { buffer: await readResponseCapped(res, maxBytes), mediaType, finalUrl: url };
+  }
+  throw new AdapterError('source_url exceeded the redirect limit');
+}
+
+export function decodeMediaBase64(value: unknown, maxBytes = MAX_MEDIA_BYTES): Buffer {
+  const encoded = String(value ?? '').replace(/\s+/g, '');
+  if (!encoded || encoded.length > Math.ceil(maxBytes / 3) * 4 + 4)
+    throw new AdapterError(`media exceeds the ${maxBytes}-byte limit`);
+  if (encoded.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded))
+    throw new AdapterError('content_base64 is not valid base64');
+  const buffer = Buffer.from(encoded, 'base64');
+  if (buffer.byteLength > maxBytes) throw new AdapterError(`media exceeds the ${maxBytes}-byte limit`);
+  return buffer;
+}
 
 function wpBase(config: Record<string, unknown>): string {
   return cfgStr(config, 'siteUrl').replace(/\/+$/, '');
@@ -278,7 +488,7 @@ async function runBridgeAbility(
 
 const adapter: ChinvatAdapter = {
   name: 'wordpress',
-  version: '0.3.0',
+  version: '0.3.1',
   description:
     'WordPress via REST API — posts, pages, media, taxonomy. Optional Chinvat WP Bridge companion plugin adds options, theme file I/O, DB-layer Global Styles and template overrides (the layer that wins at runtime), RankMath and plugin management (bridge_* ops). Publishing and theme writes are gated as dangerous.',
   configSchema: [
@@ -317,6 +527,7 @@ const adapter: ChinvatAdapter = {
           excerpt: { type: 'string' },
           categories: { type: 'array', description: 'category IDs' },
           tags: { type: 'array', description: 'tag IDs' },
+          featured_media: { type: 'number', description: 'media ID; 0 clears it' },
         },
       },
       {
@@ -328,6 +539,7 @@ const adapter: ChinvatAdapter = {
           title: { type: 'string' },
           content: { type: 'string' },
           excerpt: { type: 'string' },
+          featured_media: { type: 'number', description: 'media ID; 0 clears it' },
         },
       },
       {
@@ -344,11 +556,13 @@ const adapter: ChinvatAdapter = {
       },
       {
         name: 'upload_media',
-        description: 'Sideload media from a URL.',
+        description: 'Upload media from one public URL or base64 content. The two source forms are mutually exclusive.',
         risk: 'act',
         params: {
-          source_url: { type: 'string', required: true },
+          source_url: { type: 'string', description: 'public http/https URL' },
+          content_base64: { type: 'string', description: 'base64 file bytes for authenticated/local sources' },
           filename: { type: 'string' },
+          mime_type: { type: 'string', description: 'required with content_base64' },
           alt_text: { type: 'string' },
         },
       },
@@ -358,7 +572,15 @@ const adapter: ChinvatAdapter = {
         name: 'create_page',
         description: 'Create a page (draft).',
         risk: 'act',
-        params: { title: { type: 'string', required: true }, content: { type: 'string', required: true } },
+        params: {
+          title: { type: 'string', required: true },
+          content: { type: 'string', required: true },
+          excerpt: { type: 'string' },
+          slug: { type: 'string' },
+          parent: { type: 'number' },
+          template: { type: 'string' },
+          featured_media: { type: 'number', description: 'media ID; 0 clears it' },
+        },
       },
       {
         name: 'list_pages',
@@ -368,6 +590,22 @@ const adapter: ChinvatAdapter = {
           status: { type: 'string', description: 'publish|draft|any' },
           search: { type: 'string' },
           per_page: { type: 'number' },
+        },
+      },
+      { name: 'get_page', description: 'One page with raw editable content.', risk: 'read', params: { id: { type: 'number', required: true } } },
+      {
+        name: 'update_page',
+        description: 'Update fields on an existing page (not status).',
+        risk: 'act',
+        params: {
+          id: { type: 'number', required: true },
+          title: { type: 'string' },
+          content: { type: 'string' },
+          excerpt: { type: 'string' },
+          slug: { type: 'string' },
+          parent: { type: 'number' },
+          template: { type: 'string' },
+          featured_media: { type: 'number', description: 'media ID; 0 clears it' },
         },
       },
       {
@@ -472,6 +710,7 @@ const adapter: ChinvatAdapter = {
         if (args.excerpt) body.excerpt = args.excerpt;
         if (args.categories) body.categories = args.categories;
         if (args.tags) body.tags = args.tags;
+        if (args.featured_media !== undefined) body.featured_media = mediaId(args.featured_media);
         const r = await jsonFetch(`${base}/posts`, {
           method: 'POST',
           headers,
@@ -482,7 +721,8 @@ const adapter: ChinvatAdapter = {
       }
       case 'update_post': {
         const body: Record<string, unknown> = {};
-        for (const k of ['title', 'content', 'excerpt'] as const) if (args[k] !== undefined) body[k] = args[k];
+        for (const k of ['title', 'content', 'excerpt', 'featured_media'] as const)
+          if (args[k] !== undefined) body[k] = k === 'featured_media' ? mediaId(args[k]) : args[k];
         if (!Object.keys(body).length) throw new AdapterError('nothing to update');
         const r = await jsonFetch(`${base}/posts/${Number(args.id)}`, {
           method: 'POST',
@@ -510,19 +750,34 @@ const adapter: ChinvatAdapter = {
         return { output: { id: r.id, status: r.status } };
       }
       case 'upload_media': {
-        const src = String(args.source_url);
-        const fileRes = await fetch(src, { signal: ctx.signal });
-        if (!fileRes.ok) throw new AdapterError(`could not fetch source_url (HTTP ${fileRes.status})`);
-        const buf = Buffer.from(await fileRes.arrayBuffer());
-        const filename = String(args.filename ?? src.split('/').pop() ?? 'upload.bin');
+        const hasUrl = args.source_url !== undefined;
+        const hasBase64 = args.content_base64 !== undefined;
+        if (hasUrl === hasBase64)
+          throw new AdapterError('provide exactly one of source_url or content_base64');
+        let buf: Buffer;
+        let mediaType: string;
+        let filename: string;
+        if (hasUrl) {
+          const fetched = await fetchPublicMedia(String(args.source_url), ctx.signal);
+          buf = fetched.buffer;
+          mediaType = fetched.mediaType;
+          const fallback = filenameFromUrl(fetched.finalUrl);
+          filename = checkedFilename(args.filename ?? fallback);
+        } else {
+          buf = decodeMediaBase64(args.content_base64);
+          mediaType = normalizeMediaType(String(args.mime_type ?? ''));
+          if (!isAllowedMediaType(mediaType))
+            throw new AdapterError(`unsupported media type '${mediaType || 'missing'}'`);
+          filename = checkedFilename(args.filename);
+        }
         const r = await jsonFetch(`${base}/media`, {
           method: 'POST',
           headers: {
             Authorization: headers.Authorization,
-            'Content-Type': fileRes.headers.get('content-type') ?? 'application/octet-stream',
-            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Type': mediaType,
+            'Content-Disposition': mediaContentDisposition(filename),
           },
-          body: buf,
+          body: new Uint8Array(buf),
           signal: ctx.signal,
           timeoutMs: 120_000,
         });
@@ -544,10 +799,19 @@ const adapter: ChinvatAdapter = {
         return { output: (r as any[]).map((t) => ({ id: t.id, name: t.name, count: t.count })) };
       }
       case 'create_page': {
+        const body: Record<string, unknown> = { title: args.title, content: args.content, status: 'draft' };
+        for (const k of ['excerpt', 'slug', 'parent', 'template', 'featured_media'] as const)
+          if (args[k] !== undefined)
+            body[k] =
+              k === 'featured_media'
+                ? mediaId(args[k])
+                : k === 'parent'
+                  ? nonNegativeInteger(args[k], 'parent')
+                  : args[k];
         const r = await jsonFetch(`${base}/pages`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ title: args.title, content: args.content, status: 'draft' }),
+          body: JSON.stringify(body),
           signal: ctx.signal,
         });
         return { output: slim(r) };
@@ -559,6 +823,40 @@ const adapter: ChinvatAdapter = {
         q.set('per_page', String(Math.min(Number(args.per_page ?? 10), 50)));
         const r = await jsonFetch(`${base}/pages?${q}`, { headers, signal: ctx.signal });
         return { output: (r as any[]).map(slim) };
+      }
+      case 'get_page': {
+        const r = await jsonFetch(`${base}/pages/${Number(args.id)}?context=edit`, { headers, signal: ctx.signal });
+        return {
+          output: {
+            ...slim(r),
+            title: r.title?.raw ?? r.title?.rendered,
+            content: r.content?.raw ?? r.content?.rendered,
+            excerpt: r.excerpt?.raw ?? r.excerpt?.rendered,
+            slug: r.slug,
+            parent: r.parent,
+            template: r.template,
+            featured_media: r.featured_media,
+          },
+        };
+      }
+      case 'update_page': {
+        const body: Record<string, unknown> = {};
+        for (const k of ['title', 'content', 'excerpt', 'slug', 'parent', 'template', 'featured_media'] as const)
+          if (args[k] !== undefined)
+            body[k] =
+              k === 'featured_media'
+                ? mediaId(args[k])
+                : k === 'parent'
+                  ? nonNegativeInteger(args[k], 'parent')
+                  : args[k];
+        if (!Object.keys(body).length) throw new AdapterError('nothing to update');
+        const r = await jsonFetch(`${base}/pages/${Number(args.id)}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: ctx.signal,
+        });
+        return { output: slim(r) };
       }
       case 'publish_page': {
         const r = await jsonFetch(`${base}/pages/${Number(args.id)}`, {

@@ -44,10 +44,10 @@ interface ChinvatAdapter {
 
 WordPress has two complementary surfaces:
 
-1. **Core REST, shipped in the hub:** `hub/src/adapters/wordpress.ts` calls `/wp-json/wp/v2` for posts, pages, media, and taxonomy. These operations are available through Chinvat's normal jobs and policy engine.
+1. **Core REST, shipped in the hub:** adapter 0.3.1 in `hub/src/adapters/wordpress.ts` calls `/wp-json/wp/v2` for posts, pages, media, and taxonomy. Existing pages have explicit read/update operations using editable context; draft post/page writes accept `featured_media`. Media accepts one bounded public URL or base64 bytes supplied by an authenticated upstream connector. URL fetching validates HTTP(S), every redirect target, resolved addresses, MIME, and a 20 MiB cap before forwarding bytes to WordPress. These operations are available through Chinvat's normal jobs and policy engine.
 2. **WordPress Abilities, shipped in the companion plugin:** `wp-plugin/chinvat-bridge/` 0.4.2 registers 18 `chinvat-bridge/*` abilities. In addition to options, active-theme files, per-post RankMath metadata, plugin activation/deactivation, and child-theme scaffolding, eight `chinvat-db` abilities read/write/reset user Global Styles and Site Editor template/part overrides—the DB layer that wins at render time. The plugin provides authenticated `GET /wp-json/chinvat-bridge/v1/info`; schema `3` reports all 18 abilities and includes the `child_scaffold` and `db_layer` toggles.
 
-The TypeScript adapter version `0.3.0` ships 19 static `bridge_*` operations: `bridge_info`, the original ten ability mappings, and `bridge_db_state`, `bridge_global_styles_get`, `bridge_global_styles_update`, `bridge_global_styles_reset`, `bridge_template_list`, `bridge_template_get`, `bridge_template_update`, and `bridge_template_reset`. `bridge_info` calls the handshake; the other 18 map to known abilities using this contract:
+The TypeScript adapter version `0.3.1` ships 19 static `bridge_*` operations: `bridge_info`, the original ten ability mappings, and `bridge_db_state`, `bridge_global_styles_get`, `bridge_global_styles_update`, `bridge_global_styles_reset`, `bridge_template_list`, `bridge_template_get`, `bridge_template_update`, and `bridge_template_reset`. `bridge_info` calls the handshake; the other 18 map to known abilities using this contract:
 
 ```text
 read:                    GET    /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
