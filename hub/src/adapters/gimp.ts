@@ -29,6 +29,11 @@ const adapter: ChinvatAdapter = {
   version: '0.1.0',
   description:
     'GIMP 3 via the gimp-mcp plug-in socket (TCP 9877) — image inspection, snapshots, gated Python execution. Plug-in installed by the user (GPL, not vendored).',
+  activation: {
+    kind: 'app-session',
+    note: 'GIMP open + Tools → MCP → Start MCP Server, each session (does not autostart). Plug-in must live in its own subfolder: plug-ins\\gimp-mcp-plugin\\gimp-mcp-plugin.py.',
+    guide: 'app-bridges/gimp/SETUP.md',
+  },
   configSchema: [
     { key: 'host', label: 'Bridge host', type: 'string', default: '127.0.0.1', help: 'Loopback only.' },
     { key: 'port', label: 'Bridge port', type: 'number', default: 9877 },

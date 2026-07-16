@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 export interface HealthStatus { ok: boolean; detail?: string }
 export interface OperationSpec { name: string; description: string; risk: 'read' | 'act' | 'dangerous'; params: Record<string, any> }
 export interface FieldSpec { key: string; label: string; type: 'string' | 'secret' | 'number' | 'boolean'; required?: boolean; placeholder?: string; help?: string; default?: any }
+export interface ActivationSpec { kind: 'headless' | 'app-connect' | 'app-session' | 'service'; note: string; guide?: string }
 export interface ModuleView {
   name: string; version: string; description: string; external: boolean;
   enabled: boolean; tier: 'observe' | 'approve' | 'autonomous';
-  health: HealthStatus; configSchema: FieldSpec[]; config: Record<string, any>; operations: OperationSpec[];
+  health: HealthStatus; activation: ActivationSpec | null;
+  configSchema: FieldSpec[]; config: Record<string, any>; operations: OperationSpec[];
 }
 export interface Job {
   id: string; parent_id: string | null; module: string; operation: string;

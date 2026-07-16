@@ -48,6 +48,23 @@ export interface HealthStatus {
   detail?: string;
 }
 
+/**
+ * How a module comes alive — rendered on the dashboard module card so a
+ * failing health check points at the actual activation steps instead of a
+ * generic error. Kinds map to the four observed models (see
+ * docs/DESIGN-local-app-bridges.md §Backlog): 'headless' = no app running
+ * (CLI invoked per job), 'app-connect' = app running + one-time connect
+ * action, 'app-session' = app running + a per-session start action that does
+ * not autostart, 'service' = network endpoint/token config only.
+ */
+export interface ActivationSpec {
+  kind: 'headless' | 'app-connect' | 'app-session' | 'service';
+  /** One-line human instruction, e.g. "GIMP open + Tools → MCP → Start MCP Server (each session)". */
+  note: string;
+  /** Repo-relative path to the setup guide, e.g. "app-bridges/gimp/SETUP.md". */
+  guide?: string;
+}
+
 export interface InvokeResult {
   output?: unknown;
   /** Relative paths of artifacts saved via ctx.saveArtifact. */
@@ -102,6 +119,8 @@ export interface ChinvatAdapter {
   version: string;
   description: string;
   configSchema: FieldSpec[];
+  /** Optional activation model surfaced on the dashboard module card. */
+  activation?: ActivationSpec;
   capabilities(): OperationSpec[];
   health(ctx: AdapterContext): Promise<HealthStatus>;
   invoke(

@@ -75,6 +75,7 @@ export function buildHttp(hub: Hub, port: number): { app: Express; server: Serve
           enabled: m.enabled,
           tier: m.tier,
           health: await hub.registry.health(m.name),
+          activation: adapter.activation ?? null,
           configSchema: adapter.configSchema,
           config: configPublic,
           operations: m.operations,

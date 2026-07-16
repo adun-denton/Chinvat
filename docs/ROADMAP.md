@@ -38,7 +38,7 @@
 - Orca: `analyze_gcode`; `profile_clone` / bounds-checked `profile_patch`. The CLI already emits a bare `plate_N.gcode` beside the 3MF.
 - GIMP: structured edit operations.
 - Rhino: structured modeling ops and Grasshopper (connection slice shipped as `0.1.0`); re-evaluate official `mcneel/RhinoMCP` backend once it ships releases.
-- Dashboard: make newly loaded/never-enabled modules conspicuous (or enabled by default); show each module's activation kind and link its setup guide instead of a generic health error.
+- ~~Dashboard: make newly loaded/never-enabled modules conspicuous; show each module's activation kind and link its setup guide instead of a generic health error.~~ Done: disabled modules get a gold dashed card + gold Enable; adapters may declare an `activation` spec (kind/note/guide) rendered on the card, with the note shown in place of the generic health error.
 
 **Known Orca limitation:** stock OrcaSlicer for Windows is not headless-capable. Its GUI-subsystem-only installer has no `orca-slicer-console.exe` and throws a C++ exception during early initialization before logging. Use a CLI-capable Orca-lineage build through `exe_path`; the adapter is fork-agnostic and was validated against Anycubic Slicer Next.
 

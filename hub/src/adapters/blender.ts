@@ -32,6 +32,11 @@ const adapter: ChinvatAdapter = {
   version: '0.1.0',
   description:
     'Blender via the Chinvat Blender bridge add-on (TCP 9876) — scene inspection, viewport snapshots, gated Python execution.',
+  activation: {
+    kind: 'app-connect',
+    note: 'Blender open with the bridge add-on installed + one Connect click in the N-panel (Chinvat tab).',
+    guide: 'app-bridges/blender/README.md',
+  },
   configSchema: [
     { key: 'host', label: 'Bridge host', type: 'string', default: '127.0.0.1', help: 'Loopback only; the add-on binds locally.' },
     { key: 'port', label: 'Bridge port', type: 'number', default: 9876 },
