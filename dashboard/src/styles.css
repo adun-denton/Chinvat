@@ -186,6 +186,9 @@ body {
 .chip.observe { color: var(--ink-dim); }
 .chip.approve { color: var(--gold); border-color: var(--gold-deep); }
 .chip.autonomous { color: var(--bridge); border-color: var(--bridge-deep); }
+button.chip.more { cursor: pointer; background: transparent; color: var(--ink-faint);
+  border-style: dashed; transition: all 0.14s; }
+button.chip.more:hover { color: var(--ink); border-color: var(--bridge-deep); }
 
 /* Buttons / inputs */
 button.btn, a.btn {
