@@ -52,8 +52,10 @@ async function main(): Promise<void> {
   );
 
   // 2. discovery
-  const workers = parseTool(await client.callTool({ name: 'workers_list', arguments: { include_disabled: true } }));
+  const workersRes = parseTool(await client.callTool({ name: 'workers_list', arguments: { include_disabled: true } }));
+  const workers = Array.isArray(workersRes) ? workersRes : (workersRes?.workers ?? []);
   check('16 modules discoverable', Array.isArray(workers) && workers.length === 16);
+  check('workers_list carries hub build stamp', typeof workersRes?.hub?.pid === 'number' && !!workersRes?.hub?.started_at);
   const sys = workers.find((w: any) => w.name === 'system');
   check('system module defaults to approve tier', sys?.tier === 'approve');
   const coolify = workers.find((w: any) => w.name === 'coolify');
