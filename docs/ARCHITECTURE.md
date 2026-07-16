@@ -30,6 +30,7 @@ External deps beyond Express/ws/zod/better-sqlite3: `smol-toml` and `yaml` back 
 interface ChinvatAdapter {
   name: string; version: string; description: string;
   configSchema: FieldSpec[];              // drives dashboard config forms
+  activation?: ActivationSpec;            // { kind, note, guide? } — rendered on the module card
   capabilities(): OperationSpec[];        // { name, description, params, risk }
   health(ctx): Promise<{ ok: boolean; detail?: string }>;
   invoke(operation, args, ctx): Promise<InvokeResult>;  // { output?, artifacts? }
@@ -38,7 +39,7 @@ interface ChinvatAdapter {
 }
 ```
 
-`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Fourteen modules ship built-in (`ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `blender`, `orca`, `gimp`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`); more load from `modules/` at boot.
+`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Sixteen modules ship built-in (`ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`); more load from `modules/` at boot.
 
 ## Local-app bridges
 
