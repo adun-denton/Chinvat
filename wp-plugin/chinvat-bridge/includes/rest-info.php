@@ -52,6 +52,7 @@ function chinvat_bridge_info_response(): WP_REST_Response {
 		'mcp_adapter'    => class_exists( '\\WP\\MCP\\Core\\McpAdapter' ) || class_exists( 'McpAdapter' ),
 		'writes_enabled' => chinvat_bridge_writes_enabled(),
 		'developer_mode' => function_exists( 'chinvat_bridge_dev_mode' ) ? chinvat_bridge_dev_mode() : false,
+		'php_lint'       => chinvat_bridge_php_lint_info(),
 		'toggles'        => array(
 			'theme_write'          => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'theme_write' ),
 			'options_update'       => function_exists( 'chinvat_bridge_cap_enabled' ) && chinvat_bridge_cap_enabled( 'options_update' ),

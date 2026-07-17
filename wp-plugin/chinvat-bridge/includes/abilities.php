@@ -233,9 +233,10 @@ function chinvat_bridge_register_abilities(): void {
 			'output_schema'       => array(
 				'type'       => 'object',
 				'properties' => array(
-					'path'    => array( 'type' => 'string' ),
-					'bytes'   => array( 'type' => 'integer' ),
-					'backup'  => array( 'type' => 'string' ),
+					'path'         => array( 'type' => 'string' ),
+					'bytes'        => array( 'type' => 'integer' ),
+					'backup'       => array( 'type' => 'string' ),
+					'lint_backend' => array( 'type' => 'string' ),
 				),
 			),
 			'permission_callback' => static function () {
@@ -259,7 +260,12 @@ function chinvat_bridge_register_abilities(): void {
 				if ( is_wp_error( $bytes ) ) {
 					return $bytes;
 				}
-				return array( 'path' => (string) $input['path'], 'bytes' => (int) $bytes, 'backup' => (string) $backup );
+				return array(
+					'path'         => (string) $input['path'],
+					'bytes'        => (int) $bytes,
+					'backup'       => (string) $backup,
+					'lint_backend' => (string) $lint,
+				);
 			},
 			'meta'                => array(
 				'annotations'  => array( 'readonly' => false, 'destructive' => false, 'idempotent' => false ),

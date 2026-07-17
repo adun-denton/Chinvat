@@ -272,47 +272,153 @@ function chinvat_bridge_atomic_write( string $abs_path, string $content ) {
 }
 
 /**
- * Lint PHP source via `php -l` on a temp file before it is committed. Returns
- * true for non-PHP files or fails closed when the CLI binary is unavailable.
- * NOTE: lint prevents *broken* PHP, not *malicious* PHP; it is not a security
- * boundary.
+ * Resolve a usable PHP CLI binary without invoking a shell lookup.
  *
- * @param string $abs_path Destination path (used to detect extension).
- * @param string $content  Proposed file content.
- * @return true|WP_Error
+ * @return string Absolute binary path, or an empty string when unavailable.
  */
-function chinvat_bridge_php_lint( string $abs_path, string $content ) {
-	if ( 'php' !== strtolower( pathinfo( $abs_path, PATHINFO_EXTENSION ) ) ) {
-		return true;
+function chinvat_bridge_php_cli_binary(): string {
+	$suffix     = '\\' === DIRECTORY_SEPARATOR ? '.exe' : '';
+	$candidates = array();
+	if ( defined( 'PHP_BINDIR' ) && PHP_BINDIR ) {
+		$candidates[] = rtrim( PHP_BINDIR, '/\\' ) . DIRECTORY_SEPARATOR . 'php' . $suffix;
 	}
-	if ( ! function_exists( 'proc_open' ) ) {
-		return new WP_Error( 'chinvat_no_lint', __( 'Cannot lint PHP (proc_open disabled); refusing write.', 'chinvat-bridge' ) );
+	if ( defined( 'PHP_BINARY' ) && PHP_BINARY ) {
+		$candidates[] = PHP_BINARY;
+	}
+
+	foreach ( array_unique( $candidates ) as $candidate ) {
+		$base = strtolower( basename( $candidate ) );
+		if ( 0 !== strpos( $base, 'php' ) || false !== strpos( $base, 'fpm' ) ) {
+			continue;
+		}
+		if ( is_file( $candidate ) && is_executable( $candidate ) ) {
+			return $candidate;
+		}
+	}
+	return '';
+}
+
+/**
+ * Select the strongest PHP syntax backend available in the current runtime.
+ * The in-process Zend parser is preferred because it exactly matches the PHP
+ * runtime that will execute the theme and does not require process execution.
+ *
+ * @return string zend-tokenizer|php-cli|unavailable
+ */
+function chinvat_bridge_php_lint_backend(): string {
+	if ( function_exists( 'token_get_all' ) && defined( 'TOKEN_PARSE' ) ) {
+		return 'zend-tokenizer';
+	}
+	if ( function_exists( 'proc_open' ) && '' !== chinvat_bridge_php_cli_binary() ) {
+		return 'php-cli';
+	}
+	return 'unavailable';
+}
+
+/**
+ * Authenticated diagnostics for the selected PHP syntax backend.
+ *
+ * @return array<string,bool|string|null>
+ */
+function chinvat_bridge_php_lint_info(): array {
+	$backend = chinvat_bridge_php_lint_backend();
+	$binary  = 'php-cli' === $backend ? chinvat_bridge_php_cli_binary() : '';
+	return array(
+		'available'       => 'unavailable' !== $backend,
+		'backend'         => $backend,
+		'runtime_version' => PHP_VERSION,
+		'proc_open'       => function_exists( 'proc_open' ),
+		'tokenizer'       => function_exists( 'token_get_all' ) && defined( 'TOKEN_PARSE' ),
+		'php_binary'      => '' !== $binary ? basename( $binary ) : null,
+	);
+}
+
+/**
+ * Parse PHP source in-process with the running Zend engine.
+ *
+ * @param string $content Proposed PHP source.
+ * @return string|WP_Error Backend name on success.
+ */
+function chinvat_bridge_php_lint_tokenizer( string $content ) {
+	try {
+		token_get_all( $content, TOKEN_PARSE );
+	} catch ( \ParseError $error ) {
+		return new WP_Error(
+			'chinvat_lint_failed',
+			__( 'PHP lint failed; write aborted.', 'chinvat-bridge' ),
+			array( 'backend' => 'zend-tokenizer', 'detail' => $error->getMessage() )
+		);
+	} catch ( \Throwable $error ) {
+		return new WP_Error(
+			'chinvat_no_lint',
+			__( 'The in-process PHP lint backend failed; refusing write.', 'chinvat-bridge' ),
+			array( 'backend' => 'zend-tokenizer', 'detail' => $error->getMessage() )
+		);
+	}
+	return 'zend-tokenizer';
+}
+
+/**
+ * Lint PHP source through a verified local PHP CLI path.
+ *
+ * @param string $content Proposed PHP source.
+ * @return string|WP_Error Backend name on success.
+ */
+function chinvat_bridge_php_lint_cli( string $content ) {
+	$php = chinvat_bridge_php_cli_binary();
+	if ( ! function_exists( 'proc_open' ) || '' === $php ) {
+		return new WP_Error( 'chinvat_no_lint', __( 'No usable PHP lint backend is available; refusing write.', 'chinvat-bridge' ) );
 	}
 	$tmp = wp_tempnam( 'chinvat-lint' );
 	if ( ! $tmp ) {
 		return new WP_Error( 'chinvat_no_tmp', __( 'Could not create temp file for lint.', 'chinvat-bridge' ) );
 	}
-	file_put_contents( $tmp, $content );
-	$php  = defined( 'PHP_BINARY' ) && PHP_BINARY ? PHP_BINARY : 'php';
+	if ( false === file_put_contents( $tmp, $content, LOCK_EX ) ) {
+		@unlink( $tmp );
+		return new WP_Error( 'chinvat_no_tmp', __( 'Could not write temp file for lint.', 'chinvat-bridge' ) );
+	}
 	$desc = array(
 		1 => array( 'pipe', 'w' ),
 		2 => array( 'pipe', 'w' ),
 	);
-	$proc = proc_open( escapeshellarg( $php ) . ' -l ' . escapeshellarg( $tmp ), $desc, $pipes );
-	$out  = '';
-	if ( is_resource( $proc ) ) {
-		$out = stream_get_contents( $pipes[1] ) . stream_get_contents( $pipes[2] );
-		fclose( $pipes[1] );
-		fclose( $pipes[2] );
-		$code = proc_close( $proc );
-	} else {
-		$code = 1;
+	// Array commands (PHP 7.4+) bypass shell parsing and its quoting hazards.
+	$proc = proc_open( array( $php, '-l', $tmp ), $desc, $pipes, null, null, array( 'bypass_shell' => true ) );
+	if ( ! is_resource( $proc ) ) {
+		@unlink( $tmp );
+		return new WP_Error( 'chinvat_no_lint', __( 'Could not start the PHP lint backend; refusing write.', 'chinvat-bridge' ), array( 'backend' => 'php-cli' ) );
 	}
+	$out = stream_get_contents( $pipes[1] ) . stream_get_contents( $pipes[2] );
+	fclose( $pipes[1] );
+	fclose( $pipes[2] );
+	$code = proc_close( $proc );
 	@unlink( $tmp );
 	if ( 0 !== $code ) {
-		return new WP_Error( 'chinvat_lint_failed', __( 'PHP lint failed; write aborted.', 'chinvat-bridge' ), array( 'detail' => trim( $out ) ) );
+		return new WP_Error( 'chinvat_lint_failed', __( 'PHP lint failed; write aborted.', 'chinvat-bridge' ), array( 'backend' => 'php-cli', 'detail' => trim( $out ) ) );
 	}
-	return true;
+	return 'php-cli';
+}
+
+/**
+ * Lint PHP source before it is backed up or committed. Non-PHP files are not
+ * applicable. The gate always fails closed if no syntax backend is available.
+ * Lint prevents broken PHP, not malicious PHP; it is not a security boundary.
+ *
+ * @param string $abs_path Destination path (used to detect extension).
+ * @param string $content  Proposed file content.
+ * @return string|WP_Error Backend name on success.
+ */
+function chinvat_bridge_php_lint( string $abs_path, string $content ) {
+	if ( 'php' !== strtolower( pathinfo( $abs_path, PATHINFO_EXTENSION ) ) ) {
+		return 'not-applicable';
+	}
+	$backend = chinvat_bridge_php_lint_backend();
+	if ( 'zend-tokenizer' === $backend ) {
+		return chinvat_bridge_php_lint_tokenizer( $content );
+	}
+	if ( 'php-cli' === $backend ) {
+		return chinvat_bridge_php_lint_cli( $content );
+	}
+	return new WP_Error( 'chinvat_no_lint', __( 'No usable PHP lint backend is available; refusing write.', 'chinvat-bridge' ), array( 'backend' => 'unavailable' ) );
 }
 
 /**

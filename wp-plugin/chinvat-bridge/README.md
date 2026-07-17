@@ -1,6 +1,6 @@
 # Chinvat WP Bridge
 
-Version 0.4.2 · MIT
+Version 0.4.3 · MIT
 
 Companion WordPress plugin for the [Chinvat](https://github.com/adun-denton/Chinvat) MCP labor hub. The built-in `wordpress` adapter covers core REST operations for posts, pages, media, and taxonomy; this plugin adds guarded option access, active-theme file I/O, runtime-authoritative Global Styles and Site Editor template overrides, block-aware child-theme scaffolding, per-post RankMath fields, and installed-plugin activation/deactivation.
 
@@ -59,7 +59,7 @@ Block themes do not automatically load a child `style.css`, so the generated `fu
 
 - WordPress 6.4+
 - PHP 7.4+
-- PHP CLI reachable through `proc_open` for the `theme-write` PHP lint gate
+- PHP tokenizer support (standard in PHP 7.4+) for the in-process `theme-write` syntax gate; a resolved PHP CLI through `proc_open` is the fail-closed fallback
 - WordPress Abilities API to register/expose the abilities
 - MCP Adapter when WordPress should expose the abilities through MCP
 - RankMath only for `rankmath-get` and `rankmath-update`
@@ -85,7 +85,7 @@ define( 'CHINVAT_BRIDGE_ENABLE', true );
 
 Authentication uses standard WordPress application passwords. Every ability also checks the WordPress capability shown above.
 
-`theme-write` refuses every agent-supplied `.php` write when PHP CLI linting through `proc_open` is unavailable or unsuccessful; non-PHP writes are unaffected. The scaffold-generated `functions.php` is static plugin-authored content and therefore does not use that agent-input lint path.
+`theme-write` parses every agent-supplied `.php` file with the running Zend engine through `token_get_all(..., TOKEN_PARSE)`. This in-process backend works when `proc_open` is disabled and matches the PHP runtime that will execute the theme. A resolved PHP CLI is used only when the tokenizer is unavailable; if neither backend can run, the write still fails closed. Non-PHP writes are unaffected. The scaffold-generated `functions.php` is static plugin-authored content and therefore does not use that agent-input lint path.
 
 **`theme-write` is remote code execution by design.** An agent able to write PHP into the active theme can execute code as the web-server user. Operational rules:
 
@@ -98,7 +98,7 @@ The v0.1.2/v0.2.0 hardening, informed by two adversarial reviews, adds layered m
 
 - read/write paths are confined to the active stylesheet theme; traversal and symlink escape are rejected;
 - writes use a temporary file and atomic rename;
-- PHP content must pass `php -l`; missing lint support fails closed;
+- PHP content must pass the in-process Zend parser or the PHP CLI fallback; missing lint support fails closed;
 - existing files are backed up outside the theme under protected `wp-content/chinvat-bak/` before replacement;
 - the default option denylist blocks auth keys/salts, credentials, roles, active plugins, site URLs, secret-like names, and related protected options;
 - `chinvat_bridge_settings` is always denied, so an ability cannot enable its own Developer Mode or toggles;
@@ -122,7 +122,7 @@ Authenticated administrators can call:
 GET /wp-json/chinvat-bridge/v1/info
 ```
 
-Version 0.4.2 returns `schema_version: 3`. The response includes `version`, `schema_version`, `abilities_api`, `mcp_adapter`, `writes_enabled`, `developer_mode`, individual `toggles` (including `child_scaffold` and `db_layer`), active-theme confinement details, RankMath status, and 18 capability/risk records.
+Version 0.4.3 returns `schema_version: 4`. The response includes `version`, `schema_version`, `abilities_api`, `mcp_adapter`, `writes_enabled`, `developer_mode`, individual `toggles` (including `child_scaffold` and `db_layer`), `php_lint` backend/runtime diagnostics, active-theme confinement details, RankMath status, and 18 capability/risk records. Successful `theme-write` results also name the `lint_backend` used (`zend-tokenizer`, `php-cli`, or `not-applicable`).
 
 ## Chinvat adapter integration
 
