@@ -1,7 +1,7 @@
 # Roadmap
 
 ## v0.2 — routing & reach
-- **WordPress bridge delivered:** v0.1.2 security hardening ✓; v0.2.0 Developer Mode/toggles ✓; v0.3.x block-aware child-theme scaffold/loader ✓; v0.4.0–0.4.2 DB-layer state, Global Styles, and template/part primitives ✓. The plugin exposes 18 Abilities plus the authenticated schema-3 handshake.
+- **WordPress bridge delivered:** v0.1.2 security hardening ✓; v0.2.0 Developer Mode/toggles ✓; v0.3.x block-aware child-theme scaffold/loader ✓; v0.4.0–0.4.2 DB-layer state, Global Styles, and template/part primitives ✓; v0.4.3 in-process PHP lint fallback and diagnostics ✓. The plugin exposes 18 Abilities plus the authenticated schema-4 handshake.
 - **WordPress adapter extension delivered ✓:** 19 static `bridge_*` operations (handshake + 18 abilities) use the verified GET / DELETE-query / POST-body Abilities contract through normal Chinvat jobs/policy.
 - **WordPress core REST editing delivered ✓:** adapter 0.4.0 adds `get_page`/`update_page`, block-navigation list/read/update, media list/read/metadata-update/permanent-delete, featured-media fields for post/page drafts and updates, authenticated-connector base64 media handoff, and bounded SSRF-aware public URL ingestion.
 - **Next WordPress slice:** export/snapshot-on-approval—read verified DB overrides, write them into child-theme files, commit to the site's GitHub repository, then reset the DB overrides so files become authoritative.
@@ -28,7 +28,7 @@
 
 ## Shipped
 - Sixteen modules incl. the reusable **openai-compatible** worker (NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure), **X (Twitter)**, LinkedIn, Instagram, Facebook, WhatsApp, GIMP, Orca, Blender, Rhino, WordPress, Telegram, OpenRouter, Ollama, System, and the **Coolify** infrastructure worker.
-- **Chinvat WP Bridge 0.4.2 + adapter 0.4.0:** 18 Abilities including runtime-authoritative DB state, Global Styles, and Site Editor template/part get/update/reset primitives; Developer Mode and per-surface toggles; authenticated schema-3 handshake. Hub invocation exposes 19 static `bridge_*` operations with policy-preserving risks and best-effort health detection.
+- **Chinvat WP Bridge 0.4.3 + adapter 0.4.0:** 18 Abilities including runtime-authoritative DB state, Global Styles, and Site Editor template/part get/update/reset primitives; Developer Mode and per-surface toggles; in-process PHP syntax validation on `proc_open`-restricted hosts; authenticated schema-4 handshake. Hub invocation exposes 19 static `bridge_*` operations with policy-preserving risks and best-effort health detection.
 - First-class **Connect** flow: per-client config, safe auto-install, endpoint self-test; per-module **Test connection**.
 
 - **Local-app bridges:** Blender `0.1.0`, Orca `0.1.0`, GIMP `0.1.0`, and Rhino `0.1.0` (connection slice: document/object reads, viewport snapshot, gated `execute_rhinoscript`; framed loopback TCP to the `jingcheng-chen/rhinomcp` plugin), plus the shared `local-app-bridge` transport. All were live-validated. See [the design](DESIGN-local-app-bridges.md), [GIMP setup](../app-bridges/gimp/SETUP.md), and [Rhino setup](../app-bridges/rhino/SETUP.md).
