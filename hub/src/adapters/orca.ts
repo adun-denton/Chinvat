@@ -240,6 +240,11 @@ const adapter: ChinvatAdapter = {
         const effectivePlate = isProject ? plate : 0;
         const cliArgs = [
           '--debug', '2',
+          // OrcaSlicer system presets use "inherits" parent-chains that only
+          // resolve when the data dir is known; without this the slice throws a
+          // C++ exception at load. (The Anycubic fork's presets were flattened,
+          // so it worked without.) Verified against OrcaSlicer 2.4.x.
+          '--datadir', c.dataDir,
           '--load-settings', `${machine};${proc}`,
           '--load-filaments', filament,
           ...(isProject ? [] : ['--arrange', '1', '--ensure-on-bed']),
