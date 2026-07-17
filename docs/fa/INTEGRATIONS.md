@@ -48,6 +48,14 @@ DB-layer primitives اکنون Shipped و در Production آزمایش شده‌
 
 دو مرحلهٔ دستی ویژهٔ GIMP لازم است: Plug-in باید در Subfolder همنام قرار گیرد، نه Loose (`plug-ins\\gimp-mcp-plugin\\gimp-mcp-plugin.py`)؛ و در هر Session پس از باز کردن یک Image، **Tools → MCP → Start MCP Server** اجرا شود. دستور کامل در [GIMP setup](../../app-bridges/gimp/SETUP.md) است. `execute_python` هم به `python_enabled` و هم به Approval Policy نیاز دارد.
 
+## Rhino — مدل‌سازی سه‌بعدی محلی
+
+ماژول `rhino` نسخهٔ `0.1.0` با Plugin `jingcheng-chen/rhinomcp` (MIT، نصب از Package Manager) در Rhino 8 روی `127.0.0.1:1999` کار می‌کند. در هر Session باید دستور `mcpstart` در Command line تایپ شود (Autostart ندارد). Operationهای `document_summary`، `object_info` و `viewport_snapshot` از نوع `read` هستند و `execute_rhinoscript` از نوع `dangerous` است و به Toggle `rhinoscript_enabled` (پیش‌فرض off) نیاز دارد. جزئیات در [Rhino setup](../../app-bridges/rhino/SETUP.md).
+
+## Coolify — زیرساخت سرور
+
+ماژول `coolify` نسخهٔ `0.1.0` به یک Coolify self-hosted از طریق API متصل می‌شود. Fieldها: `Coolify URL`، `API token` و Timeout اختیاری. خواندن Inventory (سرورها، پروژه‌ها، Applicationها، Databaseها، Deploymentها) فوری است؛ Deploy/Start/Restart به Approval می‌رود و Stop/Cancel از نوع `dangerous` است. Token را Team-scoped و حداقلی بسازید؛ از `root` استفاده نکنید.
+
 ## Telegram
 
 با `@BotFather` Bot بسازید و `botToken` را وارد کنید. به Bot پیام دهید، `get_updates` را اجرا و `chat_id` را در `chatId` ذخیره کنید. دریافت پیام‌های عادی Group نیازمند غیرفعال‌کردن Privacy Mode است.

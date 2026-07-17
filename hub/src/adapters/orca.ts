@@ -84,6 +84,10 @@ const adapter: ChinvatAdapter = {
   version: '0.1.0',
   description:
     'Orca-lineage slicer (Anycubic Slicer Next) via pinned CLI — profile inspection and headless STL/3MF slicing. Settings and slicing only; no printer control.',
+  activation: {
+    kind: 'headless',
+    note: 'No app needs to run — the CLI at exe_path is invoked per job. Requires a CLI-capable Orca-lineage build (stock Windows OrcaSlicer is not headless-capable).',
+  },
   configSchema: [
     { key: 'exe_path', label: 'Slicer executable', type: 'string', default: DEFAULT_EXE },
     { key: 'data_dir', label: 'Slicer data dir (profiles)', type: 'string', default: DEFAULT_DATA },

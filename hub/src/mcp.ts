@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -7,6 +8,36 @@ import type { Hub } from './hub.js';
 import { AdapterError } from './types.js';
 
 const VERSION = '0.1.0';
+
+/**
+ * Staleness detection for session-spawned stdio hubs: after a rebuild the
+ * dashboard hub restart doesn't touch them, and 'unknown module' used to be
+ * the only symptom. We stamp the entry file's mtime at boot and compare it on
+ * every workers_list call; if the build on disk is newer, the caller gets an
+ * explicit warning instead of silent drift.
+ */
+const ENTRY_FILE = process.argv[1] ?? '';
+const STARTED_AT = new Date().toISOString();
+let bootBuildMtime = 0;
+try { bootBuildMtime = statSync(ENTRY_FILE).mtimeMs; } catch { /* stamp unavailable; staleness check disabled */ }
+
+function hubBuildInfo(): Record<string, unknown> {
+  const info: Record<string, unknown> = {
+    version: VERSION,
+    pid: process.pid,
+    started_at: STARTED_AT,
+    build_time: bootBuildMtime ? new Date(bootBuildMtime).toISOString() : null,
+  };
+  try {
+    if (bootBuildMtime && statSync(ENTRY_FILE).mtimeMs > bootBuildMtime) {
+      info.stale = true;
+      info.warning =
+        'STALE PROCESS: the hub build on disk is newer than this running process. ' +
+        'Results may not reflect the current code. Kill this process (stdio clients respawn on the next call) or restart the hub.';
+    }
+  } catch { /* entry file unreadable; skip staleness check */ }
+  return info;
+}
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
@@ -46,7 +77,7 @@ export function createMcpServer(hub: Hub) {
           operations: m.operations.map((o) => ({ name: o.name, risk: o.risk, description: o.description })),
         }))
       );
-      return ok(withHealth);
+      return ok({ hub: hubBuildInfo(), workers: withHealth });
     }
   );
 

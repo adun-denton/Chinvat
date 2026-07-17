@@ -35,6 +35,11 @@ const adapter: ChinvatAdapter = {
   version: '0.1.0',
   description:
     'Rhino 8 via the rhinomcp plugin (TCP 1999) — document inspection, viewport snapshots, gated RhinoScript execution. Plugin installed by the user (MIT, Package Manager).',
+  activation: {
+    kind: 'app-session',
+    note: 'Rhino open + `mcpstart` typed in the command line, each session (does not autostart).',
+    guide: 'app-bridges/rhino/SETUP.md',
+  },
   configSchema: [
     { key: 'host', label: 'Bridge host', type: 'string', default: '127.0.0.1', help: 'Loopback only; the plugin binds locally.' },
     { key: 'port', label: 'Bridge port', type: 'number', default: 1999 },

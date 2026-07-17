@@ -417,7 +417,8 @@ export async function testEndpoint(ctx: ConnectCtx): Promise<EndpointTest> {
     let workers: string[] = [];
     try {
       const parsed = JSON.parse(res?.content?.[0]?.text ?? '[]');
-      workers = Array.isArray(parsed) ? parsed.map((w: any) => w.name) : [];
+      const list = Array.isArray(parsed) ? parsed : (parsed?.workers ?? []);
+      workers = Array.isArray(list) ? list.map((w: any) => w.name) : [];
     } catch {
       /* ignore */
     }

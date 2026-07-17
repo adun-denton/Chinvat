@@ -19,10 +19,23 @@ export default function Modules({ tick, notify }: { tick: number; notify: (m: st
   );
 }
 
+const CHIP_LIMIT = 8;
+const GUIDE_BASE = 'https://github.com/adun-denton/Chinvat/blob/main/';
+
+const ACTIVATION_LABEL: Record<string, string> = {
+  headless: 'headless CLI',
+  'app-connect': 'app + connect',
+  'app-session': 'app + per-session start',
+  service: 'service',
+};
+
 function ModuleCard({ m, open, onToggle, notify, reload }: { m: ModuleView; open: boolean; onToggle: () => void; notify: (s: string) => void; reload: () => void }) {
   const [form, setForm] = useState<Record<string, any>>(m.config);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [showAllOps, setShowAllOps] = useState(false);
+  const ops = showAllOps ? m.operations : m.operations.slice(0, CHIP_LIMIT);
+  const hidden = m.operations.length - CHIP_LIMIT;
   useEffect(() => setForm(m.config), [m]);
 
   const setTier = async (tier: string) => { try { await api.setTier(m.name, tier); notify(`${m.name} → ${tier}`); reload(); } catch (e: any) { notify(e.message); } };
@@ -41,14 +54,30 @@ function ModuleCard({ m, open, onToggle, notify, reload }: { m: ModuleView; open
     catch (e: any) { notify(e.message); } finally { setSaving(false); }
   };
 
+  const needsActivation = m.enabled && !m.health.ok && m.activation;
+
   return (
-    <div className="panel pad" style={{ gridColumn: open ? '1 / -1' : undefined }}>
+    <div className={`panel pad${m.enabled ? '' : ' mod-off'}`} style={{ gridColumn: open ? '1 / -1' : undefined }}>
       <div className="between">
         <div className="split">
           <span className={`hubdot ${m.health.ok ? 'up' : 'down'}`}><i /></span>
           <div>
-            <div style={{ fontSize: 16, fontFamily: 'var(--serif)' }}>{m.name}{m.external && <span className="chip" style={{ marginLeft: 8 }}>external</span>}</div>
-            <div className="faint" style={{ fontSize: 12 }}>{m.health.detail || m.description}</div>
+            <div style={{ fontSize: 16, fontFamily: 'var(--serif)' }}>
+              {m.name}
+              {m.external && <span className="chip" style={{ marginLeft: 8 }}>external</span>}
+              {m.activation && <span className="chip" style={{ marginLeft: 8 }} title={m.activation.note}>{ACTIVATION_LABEL[m.activation.kind] ?? m.activation.kind}</span>}
+              {!m.enabled && <span className="chip off" style={{ marginLeft: 8 }}>disabled</span>}
+            </div>
+            <div className="faint" style={{ fontSize: 12 }}>
+              {needsActivation ? (
+                <>
+                  {m.activation!.note}
+                  {m.activation!.guide && <> — <a href={GUIDE_BASE + m.activation!.guide} target="_blank" rel="noreferrer">setup guide</a></>}
+                </>
+              ) : (
+                m.health.detail || m.description
+              )}
+            </div>
           </div>
         </div>
         <div className="seg">
@@ -58,15 +87,20 @@ function ModuleCard({ m, open, onToggle, notify, reload }: { m: ModuleView; open
         </div>
       </div>
 
-      <div className="between" style={{ marginTop: 12 }}>
-        <div className="split" style={{ flexWrap: 'wrap', gap: 5 }}>
-          {m.operations.map((o) => (
+      <div className="between opsrow" style={{ marginTop: 12 }}>
+        <div className="split" style={{ flexWrap: 'wrap', gap: 5, minWidth: 0 }}>
+          {ops.map((o) => (
             <span key={o.name} className={`chip ${o.risk}`} title={o.description}>{o.name}</span>
           ))}
+          {hidden > 0 && (
+            <button className="chip more" onClick={() => setShowAllOps(!showAllOps)}>
+              {showAllOps ? 'show less' : `+${hidden} more`}
+            </button>
+          )}
         </div>
-        <div className="split">
+        <div className="split" style={{ flex: 'none', alignSelf: 'flex-start' }}>
           <button className="btn ghost sm" onClick={test} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
-          <button className="btn ghost sm" onClick={toggle}>{m.enabled ? 'Disable' : 'Enable'}</button>
+          <button className={`btn sm ${m.enabled ? 'ghost' : 'gold'}`} onClick={toggle}>{m.enabled ? 'Disable' : 'Enable'}</button>
           {m.configSchema.length > 0 && <button className="btn sm" onClick={onToggle}>{open ? 'Close' : 'Configure'}</button>}
         </div>
       </div>

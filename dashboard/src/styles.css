@@ -186,6 +186,15 @@ body {
 .chip.observe { color: var(--ink-dim); }
 .chip.approve { color: var(--gold); border-color: var(--gold-deep); }
 .chip.autonomous { color: var(--bridge); border-color: var(--bridge-deep); }
+button.chip.more { cursor: pointer; background: transparent; color: var(--ink-faint);
+  border-style: dashed; transition: all 0.14s; }
+button.chip.more:hover { color: var(--ink); border-color: var(--bridge-deep); }
+.chip.off { color: var(--gold); border-color: var(--gold-deep); }
+
+/* Disabled (never-enabled) modules: conspicuous, not buried */
+.panel.mod-off { border-style: dashed; border-color: var(--gold-deep);
+  background: linear-gradient(180deg, #1a2415, var(--deep)); }
+.panel.mod-off .hubdot i { background: var(--gold); box-shadow: 0 0 0 3px #e2b44e22; }
 
 /* Buttons / inputs */
 button.btn, a.btn {

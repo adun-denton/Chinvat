@@ -27,17 +27,18 @@
 - Audit export, retention policies.
 
 ## Shipped
-- Fourteen modules incl. the reusable **openai-compatible** worker (NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure), **X (Twitter)**, LinkedIn, Instagram, Facebook, WhatsApp, GIMP, Orca, Blender, WordPress, Telegram, OpenRouter, Ollama.
+- Sixteen modules incl. the reusable **openai-compatible** worker (NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure), **X (Twitter)**, LinkedIn, Instagram, Facebook, WhatsApp, GIMP, Orca, Blender, Rhino, WordPress, Telegram, OpenRouter, Ollama, System, and the **Coolify** infrastructure worker.
 - **Chinvat WP Bridge 0.4.2 + adapter 0.4.0:** 18 Abilities including runtime-authoritative DB state, Global Styles, and Site Editor template/part get/update/reset primitives; Developer Mode and per-surface toggles; authenticated schema-3 handshake. Hub invocation exposes 19 static `bridge_*` operations with policy-preserving risks and best-effort health detection.
 - First-class **Connect** flow: per-client config, safe auto-install, endpoint self-test; per-module **Test connection**.
 
-- **Local-app bridges:** Blender `0.1.0`, Orca `0.1.0`, and GIMP `0.1.0`, plus the shared loopback `local-app-bridge` transport. All were live-validated. See [the design](DESIGN-local-app-bridges.md) and [GIMP setup](../app-bridges/gimp/SETUP.md).
+- **Local-app bridges:** Blender `0.1.0`, Orca `0.1.0`, GIMP `0.1.0`, and Rhino `0.1.0` (connection slice: document/object reads, viewport snapshot, gated `execute_rhinoscript`; framed loopback TCP to the `jingcheng-chen/rhinomcp` plugin), plus the shared `local-app-bridge` transport. All were live-validated. See [the design](DESIGN-local-app-bridges.md), [GIMP setup](../app-bridges/gimp/SETUP.md), and [Rhino setup](../app-bridges/rhino/SETUP.md).
+- **Dashboard Modules view cleanup:** operation chips collapse past 8 with a `+N more` toggle; card actions pinned so long op lists no longer crowd the layout.
 
 ## Local-app backlog
 - Orca: `analyze_gcode`; `profile_clone` / bounds-checked `profile_patch`. The CLI already emits a bare `plate_N.gcode` beside the 3MF.
 - GIMP: structured edit operations.
-- Rhino adapter: unstarted, bonus tier.
-- Dashboard: make newly loaded/never-enabled modules conspicuous (or enabled by default); show each module's activation kind and link its setup guide instead of a generic health error.
+- Rhino: structured modeling ops and Grasshopper (connection slice shipped as `0.1.0`); re-evaluate official `mcneel/RhinoMCP` backend once it ships releases.
+- ~~Dashboard: make newly loaded/never-enabled modules conspicuous; show each module's activation kind and link its setup guide instead of a generic health error.~~ Done: disabled modules get a gold dashed card + gold Enable; adapters may declare an `activation` spec (kind/note/guide) rendered on the card, with the note shown in place of the generic health error.
 
 **Known Orca limitation:** stock OrcaSlicer for Windows is not headless-capable. Its GUI-subsystem-only installer has no `orca-slicer-console.exe` and throws a C++ exception during early initialization before logging. Use a CLI-capable Orca-lineage build through `exe_path`; the adapter is fork-agnostic and was validated against Anycubic Slicer Next.
 
