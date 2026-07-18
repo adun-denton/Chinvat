@@ -8,7 +8,8 @@
     "build": "npm run build -w hub && npm run build -w dashboard",
     "dev": "npm run dev -w hub",
     "start": "node hub/dist/index.js",
-    "smoke": "node hub/dist/smoke.js"
+    "smoke": "node hub/dist/smoke.js",
+    "smoke:ollama": "node scripts/smoke-ollama-ephemeral.mjs"
   },
   "engines": { "node": ">=20" },
   "license": "MIT"

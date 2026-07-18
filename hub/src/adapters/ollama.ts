@@ -25,6 +25,8 @@ const adapter: ChinvatAdapter = {
         model: { type: 'string', description: 'defaults to configured defaultModel' },
         prompt: { type: 'string' },
         messages: { type: 'array', description: '[{role, content}, …]' },
+        think: { type: 'boolean', description: 'Enable or disable model thinking.' },
+        format: { type: 'object', description: '"json" or a JSON schema object.' },
         options: { type: 'object', description: 'Ollama options (temperature, num_ctx, …)' },
       },
     },
@@ -35,6 +37,8 @@ const adapter: ChinvatAdapter = {
       params: {
         model: { type: 'string' },
         prompt: { type: 'string', required: true },
+        think: { type: 'boolean', description: 'Enable or disable model thinking.' },
+        format: { type: 'object', description: '"json" or a JSON schema object.' },
         options: { type: 'object' },
       },
     },
@@ -78,7 +82,14 @@ const adapter: ChinvatAdapter = {
           [{ role: 'user', content: String(args.prompt ?? '') }];
         const r = await jsonFetch(`${baseUrl}/api/chat`, {
           method: 'POST',
-          body: JSON.stringify({ model, messages, stream: false, options: args.options }),
+          body: JSON.stringify({
+            model,
+            messages,
+            stream: false,
+            think: args.think,
+            format: args.format,
+            options: args.options,
+          }),
           signal: ctx.signal,
           timeoutMs: 600_000,
         });
@@ -94,7 +105,14 @@ const adapter: ChinvatAdapter = {
       case 'generate': {
         const r = await jsonFetch(`${baseUrl}/api/generate`, {
           method: 'POST',
-          body: JSON.stringify({ model, prompt: String(args.prompt), stream: false, options: args.options }),
+          body: JSON.stringify({
+            model,
+            prompt: String(args.prompt),
+            stream: false,
+            think: args.think,
+            format: args.format,
+            options: args.options,
+          }),
           signal: ctx.signal,
           timeoutMs: 600_000,
         });

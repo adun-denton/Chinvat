@@ -228,11 +228,26 @@ export function createMcpServer(hub: Hub) {
       title: 'Invoke directly',
       description:
         'Synchronous single call, still policy-checked. Convenient for quick read operations; ' +
-        'creates a tracked job under the hood.',
-      inputSchema: { module: z.string(), operation: z.string(), args: z.record(z.any()).optional() },
+        'creates a tracked job unless ephemeral=true. Ephemeral calls are read-only and write no ' +
+        'arguments, results, events, logs, or artifacts to Chinvat storage, and are limited to ' +
+        'modules on the ephemeralModules allowlist (default: ollama).',
+      inputSchema: {
+        module: z.string(),
+        operation: z.string(),
+        args: z.record(z.any()).optional(),
+        ephemeral: z.boolean().optional(),
+      },
     },
-    async ({ module, operation, args }: { module: string; operation: string; args?: Record<string, unknown> }) => {
+    async ({ module, operation, args, ephemeral }: {
+      module: string;
+      operation: string;
+      args?: Record<string, unknown>;
+      ephemeral?: boolean;
+    }) => {
       try {
+        if (ephemeral) {
+          return ok(await hub.jobs.invokeEphemeral(module, operation, args ?? {}));
+        }
         const job = hub.jobs.submit({ module, operation, args: args ?? {}, mode: 'sync', source: 'mcp:adapter_invoke' });
         const cfg = hub.config.get();
         const done = await hub.jobs.waitFor(job.id, cfg.syncWaitMsDefault);

@@ -14,6 +14,8 @@ export interface ChinvatConfig {
   concurrencyPerModule: number;
   syncWaitMsDefault: number;
   syncWaitMsMax: number;
+  /** Modules whose read-risk operations may be invoked with ephemeral:true (no persistence). */
+  ephemeralModules: string[];
   modules: Record<string, ModuleSettings>;
 }
 
@@ -74,6 +76,9 @@ export class ConfigStore {
       concurrencyPerModule: raw.concurrencyPerModule ?? 2,
       syncWaitMsDefault: raw.syncWaitMsDefault ?? 120_000,
       syncWaitMsMax: raw.syncWaitMsMax ?? 600_000,
+      ephemeralModules: Array.isArray(raw.ephemeralModules)
+        ? raw.ephemeralModules.map(String)
+        : ['ollama'],
       modules: raw.modules ?? {},
     };
     return cfg;

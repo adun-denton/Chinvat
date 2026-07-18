@@ -4,7 +4,7 @@ import type { EventBus } from './events.js';
 import type { Registry } from './registry.js';
 import type { ConfigStore } from './config.js';
 import { decide } from './policy.js';
-import type { ApprovalInfo, Job, JobMode, JobStatus } from './types.js';
+import type { ApprovalInfo, InvokeResult, Job, JobMode, JobStatus } from './types.js';
 
 export interface SubmitParams {
   module: string;
@@ -58,6 +58,49 @@ export class JobEngine {
     this.recover();
     this.timer = setInterval(() => this.dispatch(), 1000);
     this.timer.unref();
+  }
+
+  /**
+   * Execute a read-only operation without writing arguments, results, events, logs,
+   * or artifacts to Chinvat storage. Ephemeral calls are synchronous and cannot be
+   * approved or recovered after restart by design.
+   */
+  async invokeEphemeral(
+    module: string,
+    operation: string,
+    args: Record<string, unknown>
+  ): Promise<InvokeResult> {
+    const adapter = this.registry.get(module);
+    if (!adapter) throw new Error(`unknown module '${module}'`);
+    if (!this.registry.isEnabled(module)) throw new Error(`module '${module}' is disabled`);
+    const allowlist = this.config.get().ephemeralModules;
+    if (!allowlist.includes(module)) {
+      throw new Error(
+        `ephemeral invocation is not enabled for module '${module}' — add it to ephemeralModules in chinvat.config.json (current: ${JSON.stringify(allowlist)})`
+      );
+    }
+    const op = this.registry.operation(module, operation);
+    if (!op)
+      throw new Error(
+        `unknown operation '${operation}' on '${module}' (use capabilities_describe)`
+      );
+    if (op.risk !== 'read') {
+      throw new Error('ephemeral invocation is limited to read-risk operations');
+    }
+    const tier = this.config.module(module).tier;
+    if (decide(op.risk, tier) !== 'run') {
+      throw new Error(`policy_rejected: tier '${tier}' does not allow '${op.risk}' operations`);
+    }
+
+    const baseCtx = this.registry.makeCtx(module);
+    return adapter.invoke(operation, args, {
+      ...baseCtx,
+      jobId: undefined,
+      log: () => undefined,
+      saveArtifact: async () => {
+        throw new Error('artifact persistence is disabled for ephemeral invocation');
+      },
+    });
   }
 
   /** Stop dispatching (call before closing the DB). Running jobs are abandoned to recovery on next boot. */
