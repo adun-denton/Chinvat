@@ -70,7 +70,7 @@ const adapter: ChinvatAdapter = {
         messages: { type: 'array' },
         response_format: { type: 'object' },
         temperature: { type: 'number' },
-        max_tokens: { type: 'number' },
+        max_completion_tokens: { type: 'number' },
       },
     },
     { name: 'list_models', description: 'Available model catalog.', risk: 'read', params: {} },
@@ -148,12 +148,19 @@ const adapter: ChinvatAdapter = {
         if (endpoint.supports_implicit_caching !== false) {
           throw new Error(`ZDR endpoint ${provider}/${model} does not prove implicit caching is disabled`);
         }
-        if (
-          args.response_format !== undefined &&
-          (!Array.isArray(endpoint.supported_parameters) ||
-            !endpoint.supported_parameters.includes('response_format'))
-        ) {
-          throw new Error(`ZDR endpoint ${provider}/${model} does not support response_format`);
+        const supported = new Set<string>(
+          Array.isArray(endpoint.supported_parameters)
+            ? endpoint.supported_parameters.map(String)
+            : []
+        );
+        for (const [argument, parameter] of [
+          ['response_format', 'response_format'],
+          ['temperature', 'temperature'],
+          ['max_completion_tokens', 'max_completion_tokens'],
+        ] as const) {
+          if (args[argument] !== undefined && !supported.has(parameter)) {
+            throw new Error(`ZDR endpoint ${provider}/${model} does not support ${parameter}`);
+          }
         }
 
         const messages =
@@ -173,7 +180,9 @@ const adapter: ChinvatAdapter = {
         };
         if (args.response_format !== undefined) body.response_format = args.response_format;
         if (args.temperature !== undefined) body.temperature = args.temperature;
-        if (args.max_tokens !== undefined) body.max_tokens = args.max_tokens;
+        if (args.max_completion_tokens !== undefined) {
+          body.max_completion_tokens = args.max_completion_tokens;
+        }
         const r = await jsonFetch(`${BASE}/chat/completions`, {
           method: 'POST',
           headers,

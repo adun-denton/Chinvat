@@ -47,7 +47,7 @@ test('private_chat enforces live ZDR route and fail-closed provider controls', a
         tag: 'azure',
         status: 0,
         supports_implicit_caching: false,
-        supported_parameters: ['response_format'],
+        supported_parameters: ['response_format', 'max_completion_tokens'],
       }] }), { status: 200 });
     }
     return new Response(JSON.stringify({
@@ -64,8 +64,7 @@ test('private_chat enforces live ZDR route and fail-closed provider controls', a
       provider: 'azure',
       prompt: 'synthetic',
       response_format: schema,
-      temperature: 0,
-      max_tokens: 100,
+      max_completion_tokens: 100,
     }, ctx());
     assert.equal(calls.length, 2);
     const body = calls[1].body;
@@ -77,8 +76,31 @@ test('private_chat enforces live ZDR route and fail-closed provider controls', a
       require_parameters: true,
     });
     assert.deepEqual(body.response_format, schema);
+    assert.equal(body.max_completion_tokens, 100);
+    assert.equal(body.temperature, undefined);
     assert.equal(body.tools, undefined);
     assert.equal((result.output as any).provider, 'azure');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('private_chat rejects request parameters unsupported by the pinned endpoint', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ data: [{
+    model_id: 'openai/gpt-test',
+    tag: 'azure',
+    status: 0,
+    supports_implicit_caching: false,
+    supported_parameters: ['response_format', 'max_completion_tokens'],
+  }] }), { status: 200 });
+  try {
+    await assert.rejects(
+      () => openrouter.invoke('private_chat', {
+        model: 'openai/gpt-test', provider: 'azure', temperature: 0,
+      }, ctx()),
+      /does not support temperature/
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
