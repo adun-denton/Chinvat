@@ -84,7 +84,7 @@ Model inference operations are `read`, so they never wait for approval at any ti
 
 `workers_list`, `capabilities_describe`, `tasks_submit`, `tasks_status`, `tasks_result`, `tasks_cancel`, and `adapter_invoke`.
 
-Use `tasks_submit { module, operation, args, mode:"sync"|"async", parent_id?, wait_ms? }` for persistent delegated work. Use `adapter_invoke { module, operation, args }` for a quick synchronous single call.
+Use `tasks_submit { module, operation, args, mode:"sync"|"async", parent_id?, wait_ms? }` for persistent delegated work. Use `adapter_invoke { module, operation, args }` for a quick synchronous single call. For sensitive read-only work that must not enter Chinvat's job database, use `adapter_invoke { module, operation, args, ephemeral:true }`; this disables job/event/result/log/artifact persistence and fails closed for non-read operations. Ephemeral use is confined to the `ephemeralModules` allowlist in `chinvat.config.json` (default `["ollama"]`); modules outside it are rejected fail-closed.
 
 Start external-service and system workers on **approve**. Raise autonomy only after testing the exact operations you intend to use.
 

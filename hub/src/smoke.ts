@@ -65,7 +65,41 @@ async function main(): Promise<void> {
   const caps = parseTool(await client.callTool({ name: 'capabilities_describe', arguments: { module: 'system' } }));
   check('system exposes run_command as dangerous', caps.operations.some((o: any) => o.name === 'run_command' && o.risk === 'dangerous'));
 
-  // 4. read op runs even under approve tier (policy: read always allowed) — sync
+  // 4. ephemeral read calls bypass all persistent job/event/artifact storage
+  check(
+    'ephemeral allowlist defaults to ollama only',
+    JSON.stringify(hub.config.get().ephemeralModules) === JSON.stringify(['ollama'])
+  );
+  const deniedEphemeral = await client.callTool({
+    name: 'adapter_invoke',
+    arguments: { module: 'system', operation: 'system_info', ephemeral: true },
+  });
+  check('ephemeral outside allowlist fails closed', deniedEphemeral.isError === true);
+  hub.config.get().ephemeralModules = ['system']; // widen for the persistence checks below
+  const beforeJobs = Number((hub.db.prepare('SELECT COUNT(*) AS c FROM jobs').get() as { c: number }).c);
+  const beforeEvents = Number((hub.db.prepare('SELECT COUNT(*) AS c FROM job_events').get() as { c: number }).c);
+  const ephemeral = parseTool(
+    await client.callTool({
+      name: 'adapter_invoke',
+      arguments: { module: 'system', operation: 'system_info', ephemeral: true },
+    })
+  );
+  check('ephemeral read op succeeds', !!ephemeral.output);
+  check(
+    'ephemeral call writes no jobs',
+    Number((hub.db.prepare('SELECT COUNT(*) AS c FROM jobs').get() as { c: number }).c) === beforeJobs
+  );
+  check(
+    'ephemeral call writes no events',
+    Number((hub.db.prepare('SELECT COUNT(*) AS c FROM job_events').get() as { c: number }).c) === beforeEvents
+  );
+  const blockedEphemeral = await client.callTool({
+    name: 'adapter_invoke',
+    arguments: { module: 'system', operation: 'run_command', args: { command: 'echo no' }, ephemeral: true },
+  });
+  check('ephemeral act/dangerous op fails closed', blockedEphemeral.isError === true);
+
+  // 5. read op runs even under approve tier (policy: read always allowed) — sync
   const info = parseTool(
     await client.callTool({ name: 'tasks_submit', arguments: { module: 'system', operation: 'system_info', mode: 'sync' } })
   );

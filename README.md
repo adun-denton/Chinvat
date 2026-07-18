@@ -71,7 +71,7 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `capabilities_describe` | Operations + JSON-schema args + risk level for one module |
 | `tasks_submit` | Queue a job (sync or async, optional `parent_id`) |
 | `tasks_status` / `tasks_result` / `tasks_cancel` | Track, fetch, stop |
-| `adapter_invoke` | Direct synchronous call for quick low-risk ops |
+| `adapter_invoke` | Direct synchronous call; optional non-persistent `ephemeral:true` for read-only ops |
 
 ## Modules
 
