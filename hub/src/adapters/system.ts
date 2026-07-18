@@ -17,6 +17,34 @@ function guard(config: Record<string, unknown>, p: string): string {
   return abs;
 }
 
+const WINDOWS_PATHEXT_DEFAULT = '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC';
+
+/**
+ * TASK-CHINVAT-005: MCP launchers (e.g. Claude Desktop) can hand the hub a
+ * stripped environment — observed `PathEXT=.CPL` and no ComSpec — under which
+ * PowerShell stops classifying .exe files as executable. Children then either
+ * fail with CommandNotFoundException or, worse, are invoked as "documents" via
+ * ShellExecute: detached, output lost, exit 0 — a silent no-op. Every spawn
+ * therefore gets a repaired copy of the environment.
+ */
+export function repairedEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base };
+  if (process.platform !== 'win32') return env;
+  const sysRootKey = Object.keys(env).find((k) => /^(SYSTEMROOT|WINDIR)$/i.test(k));
+  const sysRoot = (sysRootKey && env[sysRootKey]) || 'C:\\Windows';
+  const pathextKey = Object.keys(env).find((k) => k.toUpperCase() === 'PATHEXT');
+  const pathext = pathextKey ? String(env[pathextKey] ?? '') : '';
+  if (!/(^|;)\s*\.EXE\s*(;|$)/i.test(pathext)) {
+    if (pathextKey) delete env[pathextKey];
+    env.PATHEXT = WINDOWS_PATHEXT_DEFAULT;
+  }
+  const comspecKey = Object.keys(env).find((k) => k.toUpperCase() === 'COMSPEC');
+  if (!comspecKey || !env[comspecKey]) {
+    env.ComSpec = path.join(sysRoot, 'System32', 'cmd.exe');
+  }
+  return env;
+}
+
 function run(
   cmd: string,
   cmdArgs: string[],
@@ -26,7 +54,13 @@ function run(
     const child = execFile(
       cmd,
       cmdArgs,
-      { cwd: opts.cwd, timeout: opts.timeoutMs, maxBuffer: 10 * 1024 * 1024, windowsHide: true },
+      {
+        cwd: opts.cwd,
+        timeout: opts.timeoutMs,
+        maxBuffer: 10 * 1024 * 1024,
+        windowsHide: true,
+        env: repairedEnv(),
+      },
       (err, stdout, stderr) => {
         const anyErr = err as (Error & { code?: number | string }) | null;
         resolve({
@@ -128,10 +162,31 @@ const adapter: ChinvatAdapter = {
     { name: 'system_info', description: 'OS, CPU, memory, uptime.', risk: 'read', params: {} },
   ],
 
-  health: async () => ({
-    ok: true,
-    detail: `${process.platform} ${os.release()} · node ${process.version}`,
-  }),
+  health: async () => {
+    // TASK-CHINVAT-005: spawn an external binary and demand read-back evidence.
+    // Exit code 0 alone is untrustworthy — a broken environment can yield
+    // detached "document" launches that report success while running nothing.
+    const probe =
+      process.platform === 'win32'
+        ? await run(
+            path.join(String(repairedEnv().ComSpec ?? 'C:\\Windows\\System32\\cmd.exe')),
+            ['/c', 'echo chinvat-spawn-probe'],
+            { timeoutMs: 10_000 }
+          )
+        : await run('/bin/bash', ['-c', 'echo chinvat-spawn-probe'], { timeoutMs: 10_000 });
+    if (!probe.stdout.includes('chinvat-spawn-probe')) {
+      return {
+        ok: false,
+        detail:
+          `child-process spawn broken (exit ${probe.exit_code}, stdout ${JSON.stringify(probe.stdout.trim())}, ` +
+          `stderr ${JSON.stringify(probe.stderr.trim().slice(0, 200))}) — run_command results are untrustworthy on this host`,
+      };
+    }
+    return {
+      ok: true,
+      detail: `${process.platform} ${os.release()} · node ${process.version} · spawn verified`,
+    };
+  },
 
   invoke: async (op, args, ctx) => {
     switch (op) {
