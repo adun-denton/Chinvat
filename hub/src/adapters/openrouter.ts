@@ -3,6 +3,19 @@ import { cfgStr, jsonFetch, msg, unknownOp } from './util.js';
 
 const BASE = 'https://openrouter.ai/api/v1';
 
+function csv(value: unknown): string[] {
+  return String(value ?? '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function requireAllowlisted(value: string, allowed: string[], kind: string): void {
+  if (!allowed.includes(value.toLowerCase())) {
+    throw new Error(`${kind} '${value}' is not in the configured private ${kind} allowlist`);
+  }
+}
+
 const adapter: ChinvatAdapter = {
   name: 'openrouter',
   version: '0.1.0',
@@ -16,6 +29,20 @@ const adapter: ChinvatAdapter = {
       default: 'openrouter/auto',
       help: 'openrouter/auto lets OpenRouter pick; or pin e.g. anthropic/claude-sonnet',
     },
+    {
+      key: 'privateModels',
+      label: 'Private model allowlist',
+      type: 'string',
+      default: '',
+      help: 'Comma-separated exact model IDs permitted for private_chat.',
+    },
+    {
+      key: 'privateProviders',
+      label: 'Private provider allowlist',
+      type: 'string',
+      default: '',
+      help: 'Comma-separated exact provider slugs permitted for private_chat.',
+    },
   ],
 
   capabilities: () => [
@@ -27,6 +54,21 @@ const adapter: ChinvatAdapter = {
         model: { type: 'string' },
         prompt: { type: 'string' },
         messages: { type: 'array' },
+        temperature: { type: 'number' },
+        max_tokens: { type: 'number' },
+      },
+    },
+    {
+      name: 'private_chat',
+      description:
+        'Ephemeral-only hosted chat with server-side model/provider allowlists, live ZDR endpoint verification, data-collection denial, no fallback, and optional JSON Schema.',
+      risk: 'read',
+      params: {
+        model: { type: 'string', required: true },
+        provider: { type: 'string', required: true },
+        prompt: { type: 'string' },
+        messages: { type: 'array' },
+        response_format: { type: 'object' },
         temperature: { type: 'number' },
         max_tokens: { type: 'number' },
       },
@@ -75,6 +117,83 @@ const adapter: ChinvatAdapter = {
         return {
           output: {
             model: r.model,
+            message: r.choices?.[0]?.message,
+            finish_reason: r.choices?.[0]?.finish_reason,
+            usage: r.usage,
+          },
+        };
+      }
+      case 'private_chat': {
+        if (ctx.jobId) {
+          throw new Error('openrouter.private_chat requires adapter_invoke with ephemeral=true');
+        }
+        const model = String(args.model ?? '').trim();
+        const provider = String(args.provider ?? '').trim().toLowerCase();
+        if (!model || !provider) throw new Error('private_chat requires exact model and provider');
+        requireAllowlisted(model, csv(ctx.config.privateModels), 'model');
+        requireAllowlisted(provider, csv(ctx.config.privateProviders), 'provider');
+
+        const inventory = await jsonFetch<{ data?: any[] }>(`${BASE}/endpoints/zdr`, {
+          headers,
+          signal: ctx.signal,
+          timeoutMs: 15_000,
+        });
+        const endpoint = (inventory.data ?? []).find((item: any) => {
+          const slug = String(item.tag ?? '').split('/')[0].toLowerCase();
+          return item.model_id === model && slug === provider && item.status === 0;
+        });
+        if (!endpoint) {
+          throw new Error(`no healthy ZDR endpoint for allowlisted route ${provider}/${model}`);
+        }
+        if (endpoint.supports_implicit_caching !== false) {
+          throw new Error(`ZDR endpoint ${provider}/${model} does not prove implicit caching is disabled`);
+        }
+        if (
+          args.response_format !== undefined &&
+          (!Array.isArray(endpoint.supported_parameters) ||
+            !endpoint.supported_parameters.includes('response_format'))
+        ) {
+          throw new Error(`ZDR endpoint ${provider}/${model} does not support response_format`);
+        }
+
+        const messages =
+          (args.messages as unknown[]) ??
+          [{ role: 'user', content: String(args.prompt ?? '') }];
+        const body: Record<string, unknown> = {
+          model,
+          messages,
+          stream: false,
+          provider: {
+            zdr: true,
+            data_collection: 'deny',
+            only: [provider],
+            allow_fallbacks: false,
+            require_parameters: true,
+          },
+        };
+        if (args.response_format !== undefined) body.response_format = args.response_format;
+        if (args.temperature !== undefined) body.temperature = args.temperature;
+        if (args.max_tokens !== undefined) body.max_tokens = args.max_tokens;
+        const r = await jsonFetch(`${BASE}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: ctx.signal,
+          timeoutMs: 600_000,
+        });
+        const actualProvider = String(r.provider ?? '').trim().toLowerCase();
+        if (actualProvider && actualProvider !== provider) {
+          throw new Error(`OpenRouter reported unexpected provider '${actualProvider}'`);
+        }
+        if (r.model && String(r.model) !== model) {
+          throw new Error(`OpenRouter reported unexpected model '${r.model}'`);
+        }
+        return {
+          output: {
+            model: r.model ?? model,
+            provider: actualProvider || provider,
+            endpoint_tag: endpoint.tag,
+            zdr_verified_at: new Date().toISOString(),
             message: r.choices?.[0]?.message,
             finish_reason: r.choices?.[0]?.finish_reason,
             usage: r.usage,
