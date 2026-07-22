@@ -5,16 +5,44 @@ import path from 'node:path';
 import { AdapterError, type ChinvatAdapter } from '../types.js';
 import { unknownOp } from './util.js';
 
+/**
+ * Resolve the configured fence roots. Accepts (in priority order):
+ *   - allowedRoots: string[] | delimited string (";" or ",")   ← multi-root
+ *   - allowedRoot:  string                                       ← legacy single
+ *   - default: the user's home directory
+ * All returned roots are absolute and stripped of a trailing separator so the
+ * containment check below is correct even for a drive root like "C:\".
+ */
+export function fenceRoots(config: Record<string, unknown>): string[] {
+  const raw = config.allowedRoots ?? config.allowedRoot ?? os.homedir();
+  const list = Array.isArray(raw)
+    ? raw.map(String)
+    : String(raw)
+        .split(/[;,]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const roots = (list.length ? list : [os.homedir()]).map((r) => {
+    const abs = path.resolve(r);
+    return abs.length > 1 && abs.endsWith(path.sep) ? abs.slice(0, -1) : abs;
+  });
+  // De-dupe.
+  return [...new Set(roots)];
+}
+
+/** True if `abs` is the root itself or lives beneath it (separator-safe). */
+function within(abs: string, root: string): boolean {
+  return abs === root || abs.startsWith(root + path.sep);
+}
+
 function guard(config: Record<string, unknown>, p: string): string {
-  const root = path.resolve(String(config.allowedRoot ?? os.homedir()));
-  const abs = path.resolve(root, String(p ?? '.'));
   if (config.allowFullAccess === true) return path.resolve(String(p ?? '.'));
-  if (abs !== root && !abs.startsWith(root + path.sep)) {
-    throw new AdapterError(
-      `path '${p}' escapes allowedRoot '${root}' — adjust module config to widen access`
-    );
-  }
-  return abs;
+  const roots = fenceRoots(config);
+  // Relative paths resolve against the first root (stable, documented behavior).
+  const abs = path.resolve(roots[0], String(p ?? '.'));
+  if (roots.some((root) => within(abs, root))) return abs;
+  throw new AdapterError(
+    `path '${p}' escapes allowedRoots [${roots.join(', ')}] — adjust module config to widen access`
+  );
 }
 
 const WINDOWS_PATHEXT_DEFAULT = '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC';
@@ -94,6 +122,12 @@ const adapter: ChinvatAdapter = {
       label: 'Allowed root path',
       type: 'string',
       help: 'File operations are confined here. Defaults to your home directory.',
+    },
+    {
+      key: 'allowedRoots',
+      label: 'Allowed root paths (semicolon-separated)',
+      type: 'string',
+      help: 'Multiple fenced roots, e.g. "C:\\Users\\me\\Documents\\Chinvat;C:\\projects". Overrides Allowed root path when set.',
     },
     {
       key: 'allowFullAccess',
