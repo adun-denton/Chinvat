@@ -32,6 +32,8 @@ const DEFAULT_TIERS: Record<string, Tier> = {
   x: 'approve',
   coolify: 'approve',
   'openai-compatible': 'autonomous',
+  gmail: 'approve',
+  'chat-relay': 'approve',
 };
 
 const DEFAULT_ENABLED = new Set(['ollama', 'openrouter', 'system', 'telegram', 'wordpress']);

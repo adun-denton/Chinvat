@@ -23,8 +23,10 @@ import orca from './adapters/orca.js';
 import gimp from './adapters/gimp.js';
 import rhino from './adapters/rhino.js';
 import coolify from './adapters/coolify.js';
+import gmail from './adapters/gmail.js';
+import chatRelay from './adapters/chat-relay.js';
 
-const BUILTINS = [ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca, gimp, rhino, coolify];
+const BUILTINS = [ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca, gimp, rhino, coolify, gmail, chatRelay];
 
 /** Composition root: one Hub per process, shared by stdio MCP, HTTP MCP, REST and WS. */
 export class Hub {
