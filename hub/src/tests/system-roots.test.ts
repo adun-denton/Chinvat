@@ -6,6 +6,8 @@ import { fenceRoots } from '../adapters/system.js';
 
 // fenceRoots is the pure core of the fence; test it directly (guard() wraps it
 // with path.resolve + containment, exercised via the resolution semantics).
+// Expected values go through path.resolve() so assertions hold on both POSIX
+// and Windows (where '/x' resolves to '<drive>:\\x').
 
 test('defaults to home directory when nothing configured', () => {
   assert.deepEqual(fenceRoots({}), [path.resolve(os.homedir())]);
@@ -32,12 +34,14 @@ test('allowedRoots overrides legacy allowedRoot when both set', () => {
 });
 
 test('trailing separators are stripped so drive/dir roots contain correctly', () => {
-  // POSIX proxy for the Windows "C:\" drive-root bug: a root with a trailing
-  // separator must still contain its children.
+  // Proxy for the Windows "C:\\" drive-root bug: a root given with a trailing
+  // separator must resolve WITHOUT one, so containment of children holds.
   const roots = fenceRoots({ allowedRoots: '/data/' });
-  assert.deepEqual(roots, ['/data']);
-  const child = path.resolve('/data', 'projects/x');
-  assert.equal(child === roots[0] || child.startsWith(roots[0] + path.sep), true);
+  const expected = path.resolve('/data');
+  assert.deepEqual(roots, [expected]);
+  assert.equal(expected.endsWith(path.sep), false);
+  const child = path.resolve(expected, 'projects/x');
+  assert.equal(child === expected || child.startsWith(expected + path.sep), true);
 });
 
 test('duplicate roots are de-duped', () => {
