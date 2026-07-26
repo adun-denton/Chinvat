@@ -12,7 +12,7 @@ Chinvat is a local **MCP labor hub** for Windows. It gives any MCP-capable coord
 
 ```
 Coordinator agent ──MCP──▶ Chinvat Hub ──▶ ollama · openrouter · openai-compatible
-        (Claude, Codex…)      │             Windows/System · Telegram · WordPress
+        (Claude, Codex…)      │             Windows/System · Telegram · WordPress · WooCommerce
                               │             WhatsApp · Facebook · Instagram · LinkedIn · X
                               ├─ SQLite job engine (parent/child, artifacts, recovery)
                               ├─ Policy tiers (observe / approve / autonomous)
@@ -82,6 +82,7 @@ The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Code
 | `openai-compatible` | full | `Base URL` + the provider’s own `API key` |
 | `telegram` | full (incl. approval buttons) | bot token |
 | `wordpress` | full | site URL + application password |
+| `woocommerce` | full (144 fixed operations) | WooCommerce + site URL + application password |
 | `system` (Windows/shell/files) | full | policy tier ≥ approve for writes |
 | `coolify` | v0.1.0 | Coolify URL + scoped API token |
 | `blender` | v0.1.0 | Blender + enabled bridge add-on; one Connect click |

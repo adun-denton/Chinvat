@@ -12,6 +12,7 @@ import openrouter from './adapters/openrouter.js';
 import system from './adapters/system.js';
 import telegram from './adapters/telegram.js';
 import wordpress from './adapters/wordpress.js';
+import woocommerce from './adapters/woocommerce.js';
 import whatsapp from './adapters/whatsapp.js';
 import facebook from './adapters/facebook.js';
 import instagram from './adapters/instagram.js';
@@ -26,7 +27,7 @@ import coolify from './adapters/coolify.js';
 import gmail from './adapters/gmail.js';
 import chatRelay from './adapters/chat-relay.js';
 
-const BUILTINS = [ollama, openrouter, system, telegram, wordpress, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca, gimp, rhino, coolify, gmail, chatRelay];
+const BUILTINS = [ollama, openrouter, system, telegram, wordpress, woocommerce, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca, gimp, rhino, coolify, gmail, chatRelay];
 
 /** Composition root: one Hub per process, shared by stdio MCP, HTTP MCP, REST and WS. */
 export class Hub {

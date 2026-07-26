@@ -54,12 +54,34 @@ async function main(): Promise<void> {
   // 2. discovery
   const workersRes = parseTool(await client.callTool({ name: 'workers_list', arguments: { include_disabled: true } }));
   const workers = Array.isArray(workersRes) ? workersRes : (workersRes?.workers ?? []);
-  check('18 modules discoverable', Array.isArray(workers) && workers.length === 18);
+  check('19 modules discoverable', Array.isArray(workers) && workers.length === 19);
   check('workers_list carries hub build stamp', typeof workersRes?.hub?.pid === 'number' && !!workersRes?.hub?.started_at);
   const sys = workers.find((w: any) => w.name === 'system');
   check('system module defaults to approve tier', sys?.tier === 'approve');
   const coolify = workers.find((w: any) => w.name === 'coolify');
   check('coolify module defaults to disabled + approve', coolify?.enabled === false && coolify?.tier === 'approve');
+  const woo = workers.find((w: any) => w.name === 'woocommerce');
+  check('woocommerce defaults to disabled + approve', woo?.enabled === false && woo?.tier === 'approve');
+  check('woocommerce exposes 144 fixed operations', woo?.operations?.length === 144);
+  check('woocommerce has no arbitrary-request escape hatch', !woo?.operations?.some((o: any) => /request|raw/i.test(o.name)));
+  const wooCaps = parseTool(await client.callTool({
+    name: 'capabilities_describe',
+    arguments: { module: 'woocommerce' },
+  }));
+  check(
+    'every WooCommerce write exposes dry_run',
+    wooCaps.operations?.filter((o: any) => o.risk !== 'read').every((o: any) => o.params?.dry_run)
+  );
+  check(
+    'WooCommerce permanent actions expose double confirmation',
+    wooCaps.operations?.filter((o: any) =>
+      o.name.endsWith('_delete') ||
+      o.name.endsWith('_batch') ||
+      o.name === 'wc_system_tool_run' ||
+      o.name === 'wc_order_refunds_create'
+    )
+      .every((o: any) => o.params?.force && o.params?.confirm)
+  );
 
   // 3. capabilities
   const caps = parseTool(await client.callTool({ name: 'capabilities_describe', arguments: { module: 'system' } }));

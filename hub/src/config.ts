@@ -25,6 +25,7 @@ const DEFAULT_TIERS: Record<string, Tier> = {
   system: 'approve',
   telegram: 'approve',
   wordpress: 'approve',
+  woocommerce: 'approve',
   whatsapp: 'approve',
   facebook: 'approve',
   instagram: 'approve',
