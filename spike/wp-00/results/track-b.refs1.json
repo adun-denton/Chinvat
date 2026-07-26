@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-07-26T05:32:04.989Z",
+  "node": "v22.22.3",
+  "platform": "linux x64",
+  "channel": "chromium-headless-shell",
+  "reps": 3,
+  "scenarios": [
+    {
+      "id": "metrics-tick",
+      "kind": "cosmetic",
+      "note": "live-metrics strip rewrites its own subtree every 800ms"
+    },
+    {
+      "id": "force-rerender",
+      "kind": "cosmetic",
+      "note": "grid re-rendered with fresh render keys, same data, same scroll"
+    }
+  ],
+  "refStability": {
+    "dom-path": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "ax-path": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "entity-id": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "text-anchor": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    }
+  },
+  "digestIntegrity": {
+    "R1-text": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      }
+    },
+    "R2-structure": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      }
+    },
+    "R3-ax-tuples": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      }
+    },
+    "R4-entity-fields": {
+      "metrics-tick": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "force-rerender": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      }
+    }
+  },
+  "scenarioDetail": {
+    "metrics-tick": {
+      "kind": "cosmetic",
+      "note": "live-metrics strip rewrites its own subtree every 800ms",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    },
+    "force-rerender": {
+      "kind": "cosmetic",
+      "note": "grid re-rendered with fresh render keys, same data, same scroll",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    }
+  },
+  "scenariosRun": [
+    "metrics-tick",
+    "force-rerender"
+  ]
+}

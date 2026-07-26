@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Chinvat WP-00 Track A Connection-Mode Probe",
+  "version": "1.0.0",
+  "description": "Disposable measurement-only extension. Relays a small command set from its background service worker to a local measurement harness over WebSocket, so the harness can compare what an extension-attached mode can observe versus a driver-attached (Playwright) one. Not for production use.",
+  "permissions": ["tabs", "scripting", "activeTab"],
+  "host_permissions": ["http://127.0.0.1:8177/*"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

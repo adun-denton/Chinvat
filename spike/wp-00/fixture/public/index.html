@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campaign Fixture</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Campaign Fixture</h1>
+    <account-switcher></account-switcher>
+    <budget-editor></budget-editor>
+  </header>
+
+  <section id="live-metrics" class="live-metrics" aria-live="polite"></section>
+
+  <section class="toolbar" aria-label="Toolbar">
+    <!-- deliberately no accessible name: no text, no aria-label, no title -->
+    <button class="icon-btn" type="button"></button>
+    <!-- deliberately no accessible name: no label, aria-label, placeholder or title -->
+    <input type="text" class="mystery-input">
+  </section>
+
+  <main class="layout">
+    <section id="summary-widget" class="summary-widget" aria-label="Campaign summary"></section>
+
+    <section class="grid-section">
+      <h2>Campaigns</h2>
+      <div id="campaign-grid" role="grid" aria-label="Campaigns">
+        <div id="grid-header" class="grid-header" role="row"></div>
+        <div id="grid-viewport" class="grid-viewport">
+          <div id="grid-spacer" class="grid-spacer">
+            <div id="grid-rows" class="grid-rows" role="rowgroup"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="notifications-panel">
+    <h2>Notifications</h2>
+    <iframe id="notif-frame" src="/frame.html" title="Notifications" class="notif-iframe"></iframe>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>

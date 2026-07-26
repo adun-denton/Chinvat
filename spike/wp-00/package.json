@@ -1,0 +1,19 @@
+{
+  "name": "chinvat-spike-wp00",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WP-00 disposable browser spike. NOT part of the Chinvat build. Nothing here may be imported by WP-01+ packages.",
+  "scripts": {
+    "fixture": "node fixture/server.mjs",
+    "track-b": "node track-b/run.mjs",
+    "track-c": "node track-c/run-lifecycle.mjs",
+    "track-c:compose": "node track-c/compose-baseline.mjs",
+    "track-a": "node track-a/run-connection-modes.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.62.0",
+    "@playwright/mcp": "^0.0.78"
+  },
+  "engines": { "node": ">=22" }
+}

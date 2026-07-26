@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-07-26T05:32:24.604Z",
+  "node": "v22.22.3",
+  "platform": "linux x64",
+  "channel": "chromium-headless-shell",
+  "reps": 3,
+  "scenarios": [
+    {
+      "id": "scroll-away-return",
+      "kind": "cosmetic",
+      "note": "scroll 20 rows down and back to the top — same rows visible again"
+    },
+    {
+      "id": "scroll-shift",
+      "kind": "semantic",
+      "note": "scroll 10 rows down and STAY — different campaigns now occupy the same positions"
+    }
+  ],
+  "refStability": {
+    "dom-path": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 0,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 100,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "ax-path": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 0,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 100,
+        "noRefPct": 0
+      }
+    },
+    "entity-id": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 80,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 20,
+        "noRefPct": 0
+      }
+    },
+    "text-anchor": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": 0,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 80,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 20,
+        "noRefPct": 0
+      }
+    }
+  },
+  "digestIntegrity": {
+    "R1-text": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R2-structure": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R3-ax-tuples": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R4-entity-fields": {
+      "scroll-away-return": {
+        "kind": "cosmetic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": null,
+        "falseInvalidationPct": 0,
+        "missing": 0
+      },
+      "scroll-shift": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    }
+  },
+  "scenarioDetail": {
+    "scroll-away-return": {
+      "kind": "cosmetic",
+      "note": "scroll 20 rows down and back to the top — same rows visible again",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    },
+    "scroll-shift": {
+      "kind": "semantic",
+      "note": "scroll 10 rows down and STAY — different campaigns now occupy the same positions",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    }
+  },
+  "scenariosRun": [
+    "scroll-away-return",
+    "scroll-shift"
+  ]
+}

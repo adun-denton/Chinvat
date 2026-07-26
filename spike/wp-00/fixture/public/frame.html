@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Notifications</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 8px; font-size: 0.85rem; background: #fff; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 6px 4px; border-bottom: 1px solid #eee; }
+  time { color: #666; font-size: 0.75rem; display: block; }
+</style>
+</head>
+<body>
+  <ul id="notif-list" aria-label="Notifications list"></ul>
+  <script>
+    (function () {
+      var messages = [
+        'Campaign budget updated',
+        'New click spike detected',
+        'Daily spend threshold reached',
+        'Campaign paused automatically',
+        'Report export completed',
+        'Account sync finished'
+      ];
+      var list = document.getElementById('notif-list');
+      var counter = 0;
+      function addNotification() {
+        counter++;
+        var msg = messages[counter % messages.length];
+        var li = document.createElement('li');
+        var time = document.createElement('time');
+        time.textContent = new Date().toLocaleTimeString();
+        var text = document.createElement('span');
+        text.textContent = msg + ' #' + counter;
+        li.appendChild(time);
+        li.appendChild(text);
+        list.insertBefore(li, list.firstChild);
+        while (list.children.length > 20) {
+          list.removeChild(list.lastChild);
+        }
+      }
+      addNotification();
+      setInterval(addNotification, 3000);
+    })();
+  </script>
+</body>
+</html>

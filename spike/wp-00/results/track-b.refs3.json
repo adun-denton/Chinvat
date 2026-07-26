@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-07-26T05:37:48.342Z",
+  "node": "v22.22.3",
+  "platform": "linux x64",
+  "channel": "chromium-headless-shell",
+  "reps": 3,
+  "scenarios": [
+    {
+      "id": "value-change",
+      "kind": "semantic",
+      "note": "one campaign daily budget changed underneath us"
+    },
+    {
+      "id": "status-change",
+      "kind": "semantic",
+      "note": "one campaign flipped ACTIVE <-> PAUSED underneath us"
+    }
+  ],
+  "refStability": {
+    "dom-path": {
+      "value-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "ax-path": {
+      "value-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 96,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 4,
+        "noRefPct": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 96,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 4,
+        "noRefPct": 0
+      }
+    },
+    "entity-id": {
+      "value-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "text-anchor": {
+      "value-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 96,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 4,
+        "noRefPct": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    }
+  },
+  "digestIntegrity": {
+    "R1-text": {
+      "value-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R2-structure": {
+      "value-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R3-ax-tuples": {
+      "value-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R4-entity-fields": {
+      "value-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "status-change": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    }
+  },
+  "scenarioDetail": {
+    "value-change": {
+      "kind": "semantic",
+      "note": "one campaign daily budget changed underneath us",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    },
+    "status-change": {
+      "kind": "semantic",
+      "note": "one campaign flipped ACTIVE <-> PAUSED underneath us",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    }
+  },
+  "scenariosRun": [
+    "value-change",
+    "status-change"
+  ]
+}

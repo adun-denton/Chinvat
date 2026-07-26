@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-07-26T05:31:32.658Z",
+  "node": "v22.22.3",
+  "platform": "linux x64",
+  "channel": "chromium-headless-shell",
+  "reps": 3,
+  "scenarios": [
+    {
+      "id": "metrics-tick",
+      "kind": "cosmetic",
+      "note": "live-metrics strip rewrites its own subtree every 800ms"
+    },
+    {
+      "id": "force-rerender",
+      "kind": "cosmetic",
+      "note": "grid re-rendered with fresh render keys, same data, same scroll"
+    },
+    {
+      "id": "scroll-away-return",
+      "kind": "cosmetic",
+      "note": "scroll 20 rows down and back to the top — same rows visible again"
+    },
+    {
+      "id": "scroll-shift",
+      "kind": "semantic",
+      "note": "scroll 10 rows down and STAY — different campaigns now occupy the same positions"
+    },
+    {
+      "id": "value-change",
+      "kind": "semantic",
+      "note": "one campaign daily budget changed underneath us"
+    },
+    {
+      "id": "status-change",
+      "kind": "semantic",
+      "note": "one campaign flipped ACTIVE <-> PAUSED underneath us"
+    },
+    {
+      "id": "drift-rename-labels",
+      "kind": "semantic",
+      "note": "platform UI drift: all accessible names suffixed, Save renamed to Apply"
+    },
+    {
+      "id": "drift-reorder-columns",
+      "kind": "semantic",
+      "note": "platform UI drift: Spend and Clicks columns swapped"
+    },
+    {
+      "id": "drift-restructure-dom",
+      "kind": "semantic",
+      "note": "platform UI drift: grid re-parented and container id renamed"
+    }
+  ],
+  "snapshot": {
+    "scopes": [
+      {
+        "label": "ariaSnapshot(body) — full page",
+        "ms": 29.9,
+        "chars": 15619,
+        "estTokens": 3905
+      },
+      {
+        "label": "ariaSnapshot(grid) — region only",
+        "ms": 13.9,
+        "chars": 14389,
+        "estTokens": 3598
+      },
+      {
+        "label": "__probe.project(body) — compact projection",
+        "ms": 3.6,
+        "chars": 14363,
+        "estTokens": 3591
+      },
+      {
+        "label": "__probe.project(body, viewportOnly)",
+        "ms": 2.6,
+        "chars": 9022,
+        "estTokens": 2256
+      },
+      {
+        "label": "__probe.project(grid)",
+        "ms": 2.1,
+        "chars": 11653,
+        "estTokens": 2914
+      },
+      {
+        "label": "raw page HTML (worst case)",
+        "ms": 3,
+        "chars": 24104,
+        "estTokens": 6026
+      }
+    ],
+    "digestR4": {
+      "ms": 0.9,
+      "chars": 8
+    },
+    "screenshotViewport": {
+      "ms": 45.8,
+      "bytes": 131032
+    },
+    "fidelity": {
+      "openShadowContentInAriaSnapshot": true,
+      "closedShadowContentInAriaSnapshot": false,
+      "closedShadowExposedToJs": false,
+      "iframeContentInAriaSnapshot": true,
+      "iframeContentViaFrameLocator": true,
+      "unnamedControlsPresentInAriaSnapshot": 2,
+      "note": "unnamed controls appear in the snapshot with no name — they are addressable but not describable"
+    },
+    "hitTest": {
+      "total": 30,
+      "agree": 30,
+      "offscreen": 20
+    },
+    "reconciliation": {
+      "renderedRows": 25,
+      "platformTotalRows": 500,
+      "coverageComplete": false,
+      "note": "virtualized grid renders a window; a scraper that treats rendered rows as complete would under-report by 475 rows"
+    }
+  }
+}

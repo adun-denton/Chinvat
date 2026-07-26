@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-07-26T05:38:01.763Z",
+  "node": "v22.22.3",
+  "platform": "linux x64",
+  "channel": "chromium-headless-shell",
+  "reps": 3,
+  "scenarios": [
+    {
+      "id": "drift-rename-labels",
+      "kind": "semantic",
+      "note": "platform UI drift: all accessible names suffixed, Save renamed to Apply"
+    },
+    {
+      "id": "drift-reorder-columns",
+      "kind": "semantic",
+      "note": "platform UI drift: Spend and Clicks columns swapped"
+    }
+  ],
+  "refStability": {
+    "dom-path": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "ax-path": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 0,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 100,
+        "noRefPct": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 0,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 100,
+        "noRefPct": 0
+      }
+    },
+    "entity-id": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "text-anchor": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 0,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 100,
+        "noRefPct": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    }
+  },
+  "digestIntegrity": {
+    "R1-text": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R2-structure": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R3-ax-tuples": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 100,
+        "falseValidationPct": 0,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R4-entity-fields": {
+      "drift-rename-labels": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      },
+      "drift-reorder-columns": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    }
+  },
+  "scenarioDetail": {
+    "drift-rename-labels": {
+      "kind": "semantic",
+      "note": "platform UI drift: all accessible names suffixed, Save renamed to Apply",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    },
+    "drift-reorder-columns": {
+      "kind": "semantic",
+      "note": "platform UI drift: Spend and Clicks columns swapped",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "targetsObserved": 25
+    }
+  },
+  "scenariosRun": [
+    "drift-rename-labels",
+    "drift-reorder-columns"
+  ]
+}

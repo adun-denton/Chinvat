@@ -1,0 +1,124 @@
+{
+  "generatedAt": "2026-07-26T05:38:20.296Z",
+  "node": "v22.22.3",
+  "platform": "linux x64",
+  "channel": "chromium-headless-shell",
+  "reps": 3,
+  "scenarios": [
+    {
+      "id": "drift-restructure-dom",
+      "kind": "semantic",
+      "note": "platform UI drift: grid re-parented and container id renamed"
+    }
+  ],
+  "refStability": {
+    "dom-path": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 0,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 100,
+        "noRefPct": 0
+      }
+    },
+    "ax-path": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 0,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 100,
+        "noRefPct": 0
+      }
+    },
+    "entity-id": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    },
+    "text-anchor": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "total": 75,
+        "stablePct": 100,
+        "falseInvalidationPct": null,
+        "falseValidationPct": 0,
+        "unresolvedPct": 0,
+        "noRefPct": 0
+      }
+    }
+  },
+  "digestIntegrity": {
+    "R1-text": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R2-structure": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R3-ax-tuples": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    },
+    "R4-entity-fields": {
+      "drift-restructure-dom": {
+        "kind": "semantic",
+        "runs": 3,
+        "changedPct": 0,
+        "falseValidationPct": 100,
+        "falseInvalidationPct": null,
+        "missing": 0
+      }
+    }
+  },
+  "scenarioDetail": {
+    "drift-restructure-dom": {
+      "kind": "semantic",
+      "note": "platform UI drift: grid re-parented and container id renamed",
+      "coverageBefore": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaign-grid"
+      },
+      "coverageAfter": {
+        "renderedRows": 25,
+        "summaryTotalSpend": "$9251349.13",
+        "summaryTotalBudget": "$1230435.66",
+        "gridContainerId": "campaigns-grid-v2"
+      },
+      "targetsObserved": 25
+    }
+  },
+  "scenariosRun": [
+    "drift-restructure-dom"
+  ]
+}

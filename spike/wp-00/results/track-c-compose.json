@@ -1,0 +1,193 @@
+{
+  "generatedAt": "2026-07-26T05:45:39.453Z",
+  "node": "v22.22.3",
+  "playwrightMcpVersion": "0.0.78",
+  "traffic": [
+    {
+      "label": "navigate",
+      "tool": "browser_navigate",
+      "ms": 197,
+      "chars": 250,
+      "estTokens": 63,
+      "isError": false
+    },
+    {
+      "label": "snapshot-1",
+      "tool": "browser_snapshot",
+      "ms": 17,
+      "chars": 16322,
+      "estTokens": 4081,
+      "isError": false
+    },
+    {
+      "label": "click-budget-0",
+      "tool": "browser_click",
+      "ms": 560,
+      "chars": 278,
+      "estTokens": 70,
+      "isError": false
+    },
+    {
+      "label": "snapshot-2",
+      "tool": "browser_snapshot",
+      "ms": 14,
+      "chars": 16751,
+      "estTokens": 4188,
+      "isError": false
+    },
+    {
+      "label": "type-value",
+      "tool": "browser_type",
+      "ms": 22,
+      "chars": 124,
+      "estTokens": 31,
+      "isError": false
+    },
+    {
+      "label": "snapshot-save",
+      "tool": "browser_snapshot",
+      "ms": 10,
+      "chars": 16813,
+      "estTokens": 4204,
+      "isError": false
+    },
+    {
+      "label": "click-save",
+      "tool": "browser_click",
+      "ms": 1455,
+      "chars": 281,
+      "estTokens": 71,
+      "isError": false
+    },
+    {
+      "label": "snapshot-3",
+      "tool": "browser_snapshot",
+      "ms": 14,
+      "chars": 16607,
+      "estTokens": 4152,
+      "isError": false
+    }
+  ],
+  "notes": [],
+  "serverInfo": {
+    "name": "Playwright",
+    "version": "1.62.0-alpha-1783623505000"
+  },
+  "toolSurface": {
+    "count": 24,
+    "names": [
+      "browser_close",
+      "browser_resize",
+      "browser_console_messages",
+      "browser_handle_dialog",
+      "browser_evaluate",
+      "browser_file_upload",
+      "browser_drop",
+      "browser_find",
+      "browser_fill_form",
+      "browser_press_key",
+      "browser_type",
+      "browser_navigate",
+      "browser_navigate_back",
+      "browser_network_requests",
+      "browser_network_request",
+      "browser_run_code_unsafe",
+      "browser_take_screenshot",
+      "browser_snapshot",
+      "browser_click",
+      "browser_drag",
+      "browser_hover",
+      "browser_select_option",
+      "browser_tabs",
+      "browser_wait_for"
+    ],
+    "schemaChars": 18466,
+    "schemaEstTokens": 4617
+  },
+  "refExtraction": {
+    "found": true,
+    "ref": "e61",
+    "label": "Edit budget for Prime Summit Blitz, currently $2159.57",
+    "line": "                - button \"Edit budget for Prime Summit Blitz, currently $2159.57\" [ref=e61] [cursor=pointer]: $2159.57"
+  },
+  "staleRefRetries": {
+    "attempts": 1,
+    "opened": true
+  },
+  "finalSnapshotExcerpt": [
+    "          - term [ref=e40]: Total daily budget",
+    "          - gridcell \"Daily budget\" [ref=e49]",
+    "                - button \"Edit budget for Prime Summit Blitz, currently $199.99\" [ref=e873] [cursor=pointer]: $199.99",
+    "                - button \"Edit budget for Bold Summit Launch, currently $1020.48\" [ref=e883] [cursor=pointer]: $1020.48",
+    "                - button \"Edit budget for Prime Meadow Launch, currently $2065.02\" [ref=e893] [cursor=pointer]: $2065.02",
+    "                - button \"Edit budget for Prime Delta Push, currently $180.81\" [ref=e903] [cursor=pointer]: $180.81",
+    "                - button \"Edit budget for Prime Meadow Drive, currently $1471.17\" [ref=e913] [cursor=pointer]: $1471.17",
+    "                - button \"Edit budget for Clear Falcon Push, currently $640.74\" [ref=e923] [cursor=pointer]: $640.74",
+    "                - button \"Edit budget for Prime Delta Series, currently $2997.06\" [ref=e933] [cursor=pointer]: $2997.06",
+    "                - button \"Edit budget for North Comet Series, currently $2998.99\" [ref=e943] [cursor=pointer]: $2998.99",
+    "                - button \"Edit budget for Silver Anchor Blitz, currently $4838.77\" [ref=e953] [cursor=pointer]: $4838.77",
+    "                - button \"Edit budget for Golden Ember Rollout, currently $3075.65\" [ref=e963] [cursor=pointer]: $3075.65"
+  ],
+  "outcome": {
+    "mutationLanded": true,
+    "changedEntityIds": [
+      "cmp_0001"
+    ],
+    "note": "verified via the fixture API — stock MCP offers no deterministic verification primitive"
+  },
+  "totals": {
+    "roundTrips": 8,
+    "totalChars": 67426,
+    "totalEstTokens": 16860,
+    "wallClockMs": 5721
+  },
+  "governanceGap": {
+    "fieldDerivability": {
+      "workspace": "wrapper-owned",
+      "session": "wrapper-owned",
+      "originScope": "from browser_navigate url argument",
+      "accountId": "NO — not present anywhere in the MCP surface",
+      "entityType": "NO — snapshot has roles, not entity types",
+      "entityId": "NO — refs are per-snapshot handles, not platform ids",
+      "actionClass": "NO — click/type carry no consequence class; would be \"unknown\"",
+      "operation": "partial — tool name only (browser_click), not \"set_daily_budget\"",
+      "parameters": "partial — {ref, text}, not {field: dailyBudget}",
+      "oldValue": "NO — recoverable only by parsing the rendered label heuristically",
+      "newValue": "partial — the typed string, if the wrapper intercepts browser_type",
+      "unit": "NO",
+      "expectedMaxConsequence": "NO — cannot be computed without old/new value",
+      "stateDigests": "partial — hash of the snapshot text, which churns on every rerender",
+      "adapterVersion": "N/A — no adapters exist in this option",
+      "laneVersion": "wrapper-owned",
+      "policyVersion": "wrapper-owned",
+      "requestingPrincipal": "wrapper-owned",
+      "expiresAt": "wrapper-owned"
+    },
+    "fieldsNotDerivable": [
+      "accountId",
+      "entityType",
+      "entityId",
+      "actionClass",
+      "oldValue",
+      "unit",
+      "expectedMaxConsequence"
+    ],
+    "fieldsPartial": [
+      "operation",
+      "parameters",
+      "newValue",
+      "stateDigests"
+    ],
+    "approvalCanBindTo": "tool name + opaque ref + typed text",
+    "approvalCannotBindTo": [
+      "accountId",
+      "entityType",
+      "entityId",
+      "actionClass",
+      "oldValue",
+      "unit",
+      "expectedMaxConsequence"
+    ],
+    "consequence": "An approval issued over this surface reads \"approve browser_click on ref e42\". It cannot state which account, which campaign, or what the value moves from and to. The operator is therefore approving a gesture, not a consequence."
+  }
+}

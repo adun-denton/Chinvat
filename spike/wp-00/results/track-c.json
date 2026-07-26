@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-07-26T05:47:20.369Z",
+  "node": "v22.22.3",
+  "approvalMode": "simulated",
+  "negativeTests": {
+    "replay": {
+      "ok": false,
+      "reason": "replay",
+      "nonce": "f70aea43d54bcd85b4c0f1b4c7defa27",
+      "proposalHash": "722595653349005fc9b3871b56ce4c3f3109865d458feb3fb18ab8b801f52120"
+    },
+    "parameterTamper": {
+      "ok": false,
+      "reason": "proposal-drift",
+      "approvedHash": "722595653349005fc9b3871b56ce4c3f3109865d458feb3fb18ab8b801f52120",
+      "liveHash": "31fb9a250d7e94b897e731e3643f60c6455573961189e1ca652ac4c05da74ba5"
+    },
+    "entitySwap": {
+      "ok": false,
+      "reason": "proposal-drift",
+      "approvedHash": "722595653349005fc9b3871b56ce4c3f3109865d458feb3fb18ab8b801f52120",
+      "liveHash": "e4ac168eb5d890820f8562e3721ea803f4a3a3a3717700dce236cbeaac707cf5"
+    },
+    "stateDrift": {
+      "ok": false,
+      "reason": "proposal-drift",
+      "approvedHash": "722595653349005fc9b3871b56ce4c3f3109865d458feb3fb18ab8b801f52120",
+      "liveHash": "78a2da05028ef9d810d20e5853d4b4637c0cf9ca5a6b1d04b45127819594b3f0"
+    },
+    "expired": {
+      "ok": false,
+      "reason": "expired",
+      "nonce": "b0738c51a29832c3bcd45f1051eb4771",
+      "proposalHash": "722595653349005fc9b3871b56ce4c3f3109865d458feb3fb18ab8b801f52120"
+    },
+    "undeclaredField": {
+      "ok": false,
+      "reason": "unhashable-proposal",
+      "error": "proposal has undeclared fields: sneakyExtra"
+    },
+    "missingField": {
+      "ok": false,
+      "reason": "unhashable-proposal",
+      "error": "proposal missing required fields: accountId"
+    }
+  },
+  "happyPath": {
+    "entityId": "cmp_0004",
+    "oldValue": 180.81,
+    "newValue": 184.06,
+    "proposalHash": "722595653349005fc9b3871b56ce4c3f3109865d458feb3fb18ab8b801f52120",
+    "elapsedMs": 1977,
+    "verification": {
+      "V1_differentReadPath": {
+        "ok": true,
+        "observed": 184.06
+      },
+      "V2_reloadPersistence": {
+        "ok": true,
+        "observed": 184.06
+      },
+      "V3_reconciliation": {
+        "ok": true,
+        "expectedDelta": 3.25,
+        "observedDelta": 3.25
+      },
+      "V4_sanctionedAck": {
+        "ok": true,
+        "acks": [
+          {
+            "url": "http://127.0.0.1:8177/api/campaigns/cmp_0004/budget",
+            "status": 200
+          }
+        ]
+      },
+      "V5_matchesApproved": {
+        "ok": true,
+        "approvedNewValue": 184.06
+      },
+      "allPassed": true
+    }
+  },
+  "agentFacingTokens": {
+    "observation_records": 750,
+    "observation_records_rows": 25,
+    "proposal": 149,
+    "verification": 93,
+    "total": 992,
+    "forReference_ariaSnapshotFullPage": 3905,
+    "note": "compare with results/track-c-compose.json .totals.totalEstTokens for the stock-MCP path"
+  },
+  "negativeTestsAllRefused": true,
+  "ledger": {
+    "path": "/sessions/focused-compassionate-tesla/mnt/Documents--Chinvat/spike/wp-00/results/track-c.ledger.jsonl",
+    "events": 21,
+    "chainValid": true,
+    "eventTypes": [
+      "observation.captured",
+      "proposal.created",
+      "approval.issued",
+      "approval.consumed",
+      "execution.authorized",
+      "execution.completed",
+      "verification.completed",
+      "approval.denied",
+      "approval.issued",
+      "approval.denied",
+      "approval.issued",
+      "approval.denied",
+      "approval.issued",
+      "approval.denied",
+      "proposal.created",
+      "approval.issued",
+      "approval.denied",
+      "approval.issued",
+      "approval.denied",
+      "approval.issued",
+      "approval.denied"
+    ],
+    "reconstructedStory": [
+      "1 proposal.created 722595653349",
+      "2 approval.issued 722595653349",
+      "3 approval.consumed 722595653349",
+      "5 execution.completed 722595653349",
+      "6 verification.completed 722595653349",
+      "8 approval.issued 722595653349",
+      "10 approval.issued 722595653349",
+      "12 approval.issued 722595653349",
+      "14 proposal.created 722595653349",
+      "15 approval.issued 722595653349",
+      "17 approval.issued 722595653349",
+      "19 approval.issued 722595653349"
+    ],
+    "tamperDetected": true,
+    "tamperBrokenAt": 0
+  }
+}

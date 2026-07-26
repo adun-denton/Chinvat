@@ -1,0 +1,6 @@
+# WP-00 spike is standalone: its dependencies are installed locally and are
+# not part of the Chinvat workspace build.
+node_modules/
+
+# Playwright MCP scratch output from the compose baseline.
+.playwright-mcp/
