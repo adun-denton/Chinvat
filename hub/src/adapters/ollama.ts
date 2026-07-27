@@ -92,6 +92,7 @@ const adapter: ChinvatAdapter = {
           }),
           signal: ctx.signal,
           timeoutMs: 600_000,
+          longRunning: true,
         });
         return {
           output: {
@@ -115,6 +116,7 @@ const adapter: ChinvatAdapter = {
           }),
           signal: ctx.signal,
           timeoutMs: 600_000,
+          longRunning: true,
         });
         return { output: { model: r.model, response: r.response, eval_count: r.eval_count } };
       }
@@ -137,6 +139,9 @@ const adapter: ChinvatAdapter = {
           body: JSON.stringify({ model, stream: false }),
           signal: ctx.signal,
           timeoutMs: 3_600_000,
+          // stream:false means Ollama sends no bytes at all until the pull
+          // finishes, so undici's 300 s headersTimeout fires first. TASK-CHINVAT-017.
+          longRunning: true,
         });
         return { output: r };
       }
