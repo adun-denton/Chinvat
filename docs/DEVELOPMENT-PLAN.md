@@ -1,63 +1,146 @@
-# Chinvat — Full Development Plan
+# Chinvat — development plan and historical baseline
 
-Successor to the "Local MCP Labor Hub" blueprint (July 2026), adjusted after review: client-agnostic instead of Codex-only, dashboard-first, policy pulled forward from V5 to v0.1.
+> **Status:** This document records the original v0.1 architecture and the major deviations that followed. It is not the authority for the current module inventory or shipped behavior. Use [Documentation index](README.md), [Architecture](ARCHITECTURE.md), [Modules](MODULES.md), and [Roadmap](ROADMAP.md) for current state.
 
-## 1. Vision
+## 1. Original vision
 
-A **local labor hub**: coordinators (any MCP client) delegate work; Chinvat routes it to worker modules — local models, remote specialists, the Windows machine, messaging and publishing channels — persists every job, and gates risky actions behind an approval bridge. Remote/cloud deployment and multi-user control are explicit later phases; every v0.1 decision keeps that path open (Streamable HTTP transport, token auth hook, UI already client/server).
+Chinvat began as a local MCP labor hub: any coordinator delegates work to local models, hosted specialists, Windows, messaging, and publishing workers; Chinvat persists jobs and gates risky operations behind human approval.
 
-## 2. Differentiation
+The distinguishing idea remains unchanged: gateways multiplex tools, while Chinvat manages **labor**—durable work with lineage, artifacts, policy, approvals, and an operator-facing ledger.
 
-Aggregators/gateways (MetaMCP, mcp-proxy, agentgateway…) multiplex *tools*. Chinvat manages *labor*: durable jobs with lineage (`parent_id`), artifacts, policy tiers, human approval loops (dashboard + Telegram), and a UI for the human supervising the market. It is also itself an MCP server, so it composes with those gateways if ever needed.
+## 2. Original v0.1 architecture
 
-## 3. Architecture (v0.1)
+The baseline design was one Node/TypeScript process with:
 
-One Node 20+/TypeScript process:
+- MCP stdio and Streamable HTTP;
+- SQLite tables for jobs, events, and approvals;
+- risk × tier policy;
+- adapter registry with built-ins and external drop-ins;
+- React/Vite dashboard over REST/WebSocket;
+- artifacts outside SQLite;
+- safe coordinator configuration.
 
-- **Transports:** MCP stdio (spawned per-client) and MCP Streamable HTTP at `/mcp`; both share one hub singleton (jobs, policy, registry). Spec pinned to the SDK line supporting 2025-11-25; the 2026-07-28 RC (sessionless Streamable HTTP) is tracked as a low-risk upgrade since we keep no protocol-level session state.
-- **Job engine:** better-sqlite3. Tables `jobs`, `job_events`, `approvals`. States: `queued → running → succeeded|failed|cancelled`, plus `waiting_approval` before `queued`. Crash recovery: on boot, `running` → failed(`interrupted`), `queued` re-dispatched. Per-module concurrency limits. Large outputs → `data/artifacts/<jobId>/`.
-- **Policy engine:** operation risk (`read|act|dangerous`) × module tier (`observe|approve|autonomous`) → allow / queue-for-approval / reject. Approvals resolvable via dashboard or Telegram inline buttons; every decision is a `job_event` (audit trail).
-- **Adapter contract:** `name, version, description, configSchema, capabilities(), health(), invoke(op, args, ctx), cancel?`. `ctx` provides config, artifact store, logger, event emitter. Registry loads built-ins + `modules/*/` drop-ins at boot.
-- **Dashboard:** React/Vite SPA served statically by the hub; REST + WebSocket for live job/approval events.
+That core survived. The system expanded rather than being replaced.
 
-## 4. Scope of v0.1 (this build)
+## 3. Original v0.1 definition of done
 
-| # | Deliverable | Maps to blueprint |
-|---|---|---|
-| 1 | Repo scaffold, plan, agent handover docs | — |
-| 2 | Hub core: config, SQLite jobs, policy, registry, events, artifacts | V1 + slice of V5 |
-| 3 | Modules: ollama, openrouter, telegram, wordpress, system (full); whatsapp, facebook, instagram, linkedin (token-config) | V0, V2 (manual selection), V3 |
-| 4 | MCP layer (stdio + Streamable HTTP) with 7 tools; REST/WS API | V0/V1 |
-| 5 | Dashboard: Overview, Jobs, Modules, Approvals, Playground, Settings | — (new) |
-| 6 | Client packs (Claude skill, Codex plugin, snippets), install.ps1, start.cmd | blueprint §5 |
-| 7 | Verification: build + boot + stdio MCP smoke test + job-through-policy | Definition of done |
+A coordinator could:
 
-**Definition of done (v0.1):** a coordinator can discover workers, submit parallel jobs (sync + async, with lineage), survive hub restarts, retrieve structured results and artifacts, invoke app modules, and a human can supervise/approve everything from the dashboard.
+- discover workers and operation schemas;
+- submit sync/async jobs with parent/child lineage;
+- survive hub restarts and retrieve results/artifacts;
+- invoke machine and service workers;
+- stop at human approval for risky work;
+- supervise jobs from the dashboard.
 
-## 5. Worker selection
+This baseline is shipped.
 
-v0.1: explicit — coordinator names `module` (+ model in args). The skill teaches the pattern: plan on the big model, bulk-extract on local Qwen, specialize via OpenRouter, act via app modules, synthesize upstream. v0.2 adds routing metadata (cost, latency, context, historical success) captured per job, enabling `module:"auto"`.
+## 4. Major delivered expansions
 
-## 6. Windows deployment
+### Worker surface
 
-Git clone → `npm install` → `npm run build` → `npm start`. `scripts/install.ps1` automates incl. optional Task Scheduler autostart; `scripts/start.cmd` for double-click. No service wrapper in v0.1 (NSSM documented as an option). Data under `data/` beside the repo by default (`CHINVAT_DATA_DIR` to relocate).
+The initial five-worker core grew to 20 built-ins:
 
-## 7. Later versions (see ROADMAP.md for detail)
+```text
+ollama openrouter openai-compatible system telegram wordpress woocommerce
+coolify blender orca gimp rhino whatsapp facebook instagram linkedin x
+gmail chat-relay remote-node
+```
 
-- **v0.2 — routing & reach:** auto worker selection, Blender module, artifacts browser, objectives (persistent parent goals), scheduled/event triggers.
-- **v0.3 — surfaces:** WordPress *destination* plugin (WP-side companion), Tauri desktop shell + tray, WhatsApp desktop-driver alternative.
-- **v1.0 — remote:** hosted hub (VPS/cloud or tunnel), TLS + token/OIDC auth, multi-user access levels mapped to tool/operation scopes (the "user levels → tool calls" feature), fleet view for multiple hubs.
+### Authentication and federation
 
-## 8. Risks & mitigations
+The original plan reserved remote deployment for later. It is now partially delivered:
 
-- **MCP spec drift** (2026-07-28 RC): transport code isolated in `mcp.ts`; no session-state assumptions.
-- **Native module builds** (better-sqlite3): prebuilt binaries cover Node 20/22 on win32-x64; docs include build-tools fallback.
-- **Meta/LinkedIn APIs:** tokens/app review are on the user; modules validate config and surface precise errors in the dashboard rather than failing deep in a job.
-- **Telegram single-consumer:** long-polling loop guarded so only one hub instance polls a bot token.
-- **Secrets:** config file is git-ignored; dashboard masks values; docs forbid committing `data/`.
+- bearer authentication on MCP, REST, and WebSocket;
+- fail-closed non-loopback binding;
+- dashboard token prompt and token-aware Connect snippets;
+- federated remote hubs through `remote-node`.
 
-## 9. Delivered since the v0.1 plan
+Multi-user roles, OIDC, hosted recipes, and a fleet dashboard remain future work.
 
-- **X (Twitter) module** — added with `post_tweet`, `delete_tweet`, `me`, `search_recent`, OAuth 2.0, config-gated and disabled by default. The current 14 built-ins are: ollama, openrouter, openai-compatible, system, telegram, wordpress, blender, orca, gimp, whatsapp, facebook, instagram, linkedin, x.
-- **Connect workflow** — first-class coordinator connection, replacing the Settings view. Generates each client's config in its real format (Codex TOML, Claude Code/Cursor/Claude Desktop JSON, Hermes YAML) with host detection, copy or safe auto-install (preview → timestamped backup → merge only the `chinvat` entry → re-test), plus a Test MCP endpoint action that runs `workers_list`. Backed by `hub/src/connect.ts` and `/api/connect/*`; adds `smol-toml` and `yaml`. Verified live: correct paths/formats for all six clients, non-destructive TOML/JSON merges with backups, endpoint self-test reporting tools/workers. Streamable HTTP is the default transport; Claude Desktop (no native HTTP) defaults to stdio.
-- **Build hardening** — dashboard build now type-checks (`tsc --noEmit && vite build`) after collapsing a project-reference tsconfig that broke a clean Windows build.
+### Safer direct inference
+
+- reusable OpenAI-compatible worker;
+- hardened OpenRouter private routing with live ZDR route checks and no fallback;
+- allowlisted read-only ephemeral invocation with no persistence;
+- Ollama reasoning/structured-format forwarding.
+
+### Application and publishing depth
+
+- local bridges for Blender, Orca, GIMP, and Rhino;
+- Coolify infrastructure control;
+- WordPress core editing plus optional WP Bridge DB/theme/plugin surfaces;
+- guarded WooCommerce management with fixed operations and dry-run/confirmation layers.
+
+### Human-gated coding relay
+
+Mail Relay added a provider-neutral repository packet and validation pipeline:
+
+- minimal deterministic context compilation;
+- secret and classification firewall;
+- verified reply envelope;
+- disposable worktree validation;
+- dangerous live-branch apply;
+- optional Gmail transport, with clipboard/file fallbacks.
+
+### Browser evidence
+
+The WP-00 spike measured observation, approval binding, verification, coverage, token cost, and ledger behavior. It supports a reduced adapter/data-plane direction over Playwright and rejects an early custom general driver protocol.
+
+## 5. Current architecture principles
+
+These are the durable design rules:
+
+1. Coordinators plan; Chinvat governs and executes.
+2. Operations have fixed declared risk.
+3. Side effects pass through persistent jobs unless a narrow read-only ephemeral path is explicitly allowed.
+4. Bounded operation catalogues are preferred to raw method/path escape hatches.
+5. Remote machines remain independent governed hubs.
+6. Imported model output is inert until deterministic validation.
+7. Visual evidence becomes artifacts; Chinvat does not pretend to be a vision model.
+8. Code/tests are the authority when historical plans drift.
+
+## 6. Windows deployment baseline
+
+```powershell
+git clone https://github.com/adun-denton/Chinvat.git
+cd Chinvat
+npm install
+npm run build
+npm start
+```
+
+Data defaults to `data/`. Optional autostart exists through `scripts/install.ps1 -Autostart`.
+
+Operational lessons added after deployment:
+
+- never clone into `C:\Windows\System32`;
+- avoid mixing elevated and unelevated processes/files;
+- restart separate stdio hubs after config/code changes;
+- verify the listening port, not only process liveness;
+- use a private mesh and strong token for remote nodes.
+
+## 7. Current development priorities
+
+The active priorities are maintained in [Roadmap](ROADMAP.md). Near-term work is dominated by:
+
+- remote-node reliability and discoverability;
+- ComfyUI/GPU-node integration;
+- top-level settings and config reload behavior;
+- the reduced browser adapter/data-plane path;
+- WordPress DB-to-file snapshot/export;
+- automatic worker routing and durable objectives.
+
+## 8. Definition of done for new work
+
+A feature is not complete when code merely compiles. It should include, where applicable:
+
+- fixed capability schemas and risk declarations;
+- conservative default tier and explicit activation;
+- target/credential validation before secrets are attached;
+- bounded inputs/outputs and cancellation;
+- deterministic verification for side effects;
+- tests for policy and failure paths;
+- Windows build/smoke verification for native dependencies;
+- updates to `README`, `MODULES`, `ARCHITECTURE`, `CONFIGURATION`, or `ROADMAP` as required;
+- no contradictory built-in counts, security posture, or shipped/planned status.
