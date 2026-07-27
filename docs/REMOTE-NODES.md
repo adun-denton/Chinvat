@@ -1,62 +1,48 @@
 # Remote Node Management
 
-Run a Chinvat hub on a machine you do not sit in front of — a GPU box in another
-country, a home server, a workstation at the office — and drive it from your own
-coordinator as one more set of workers.
-
-## The model: federated hubs, not a remote shell
-
-Each remote machine runs its **own complete hub**. It keeps its own modules, its
-own policy tiers, its own approval queue and its own job ledger. Your local
-`remote-node` module is an MCP client to those hubs.
-
-That matters for three reasons:
-
-- The remote machine stays governed by its own rules. A `dangerous` operation
-  there still stops at *its* approval gate, not only yours.
-- Work continues when your machine is off. Submit `async`, close the laptop,
-  collect the result tomorrow.
-- The GPU box can run its own local models (`ollama`, `openai-compatible` against
-  a local vLLM or LM Studio) and act as a media engine, without shipping payloads
-  back and forth for every step.
+A remote node is a complete Chinvat hub on another machine, addressed through the local `remote-node` worker. It is a governed automation channel, not a remote-desktop session and not an unstructured SSH proxy.
 
 ```text
-your machine                          remote node (e.g. the 5070 box)
-┌───────────────────────┐             ┌──────────────────────────────┐
-│ Claude / Codex        │             │ chinvat hub :7777            │
-│   └─ chinvat hub      │  mesh VPN   │   ├─ system  (approve)       │
-│        └─ remote-node │◀──────────▶ │   ├─ ollama  (autonomous)    │
-│                       │  MCP/HTTP   │   └─ …                       │
-└───────────────────────┘  + bearer   └──────────────────────────────┘
+coordinator machine                         remote node
+┌────────────────────────┐                  ┌───────────────────────────┐
+│ coordinator            │   private mesh   │ Chinvat hub :7777         │
+│   └─ local Chinvat     │◀────────────────▶│   ├─ system               │
+│        └─ remote-node  │   MCP + bearer   │   ├─ ollama / GPU tools   │
+│                        │                  │   └─ its own policy/ledger │
+└────────────────────────┘                  └───────────────────────────┘
 ```
 
-## Step 1 — put both machines on a private mesh
+Each node retains:
 
-Do **not** port-forward `7777` to the internet. Use a WireGuard-based overlay so
-the link is encrypted and the hub is never publicly routable.
+- its own enabled modules and credentials;
+- its own risk tiers and approval queue;
+- its own job database and artifacts;
+- its own local filesystem fences;
+- the ability to continue async work when the coordinator disconnects.
 
-- **Tailscale** is the least-effort option. Install on both machines, sign in,
-  done. Each host gets a stable `100.64.0.0/10` address and a `*.ts.net` name.
-- **Headscale** is the self-hosted control plane if you cannot rely on
-  Tailscale's coordination servers or its OAuth sign-in from your network. It
-  hands out the same address space, so everything below is identical. If you
-  already run Coolify, that is a reasonable place to host it.
-- **NetBird** is a comparable self-hostable alternative.
+## 1. Put both machines on a private mesh
 
-Verify from your machine before going further:
+Do not port-forward `7777` to the public internet. Use a WireGuard-based overlay such as Tailscale or Headscale. NetBird is a comparable alternative.
+
+`remote-node` classifies these as private transports:
+
+- loopback;
+- RFC1918 IPv4;
+- Tailscale/Headscale `100.64.0.0/10`;
+- Tailscale IPv6 `fd7a:115c:a1e0::/48`;
+- `*.ts.net` names.
+
+Plain HTTP is accepted only for those classes. Public hosts require HTTPS unless `allowInsecureHttp` is deliberately enabled. An off-box node must have a token.
+
+Verify mesh reachability before configuring Chinvat:
 
 ```powershell
-ping 100.101.102.103          # the node's mesh address
+ping <node-mesh-address>
 ```
 
-`remote-node` recognises mesh addresses (`100.64.0.0/10`,
-`fd7a:115c:a1e0::/48`, `*.ts.net`) and private RFC1918 ranges, and allows plain
-`http` to them. A **public** host requires `https`; the `allowInsecureHttp`
-override exists but is almost never the right answer.
+Restrict the node firewall to TCP `7777` from the mesh range or, preferably, the coordinator peer only.
 
-## Step 2 — install and token the hub on the node
-
-On the remote machine:
+## 2. Install and configure the node hub
 
 ```powershell
 git clone https://github.com/adun-denton/Chinvat.git
@@ -65,135 +51,150 @@ npm install
 npm run build
 ```
 
-Generate a token and write the node's config:
+Generate a token:
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-In `data/chinvat.config.json` on the node:
+In the node’s `data/chinvat.config.json`:
 
 ```json
 {
   "port": 7777,
-  "bind": "100.101.102.103",
-  "authToken": "PASTE_THE_GENERATED_TOKEN"
+  "bind": "<node-mesh-address>",
+  "authToken": "<strong-unique-token>"
 }
 ```
 
-Bind to the **mesh address**, not `0.0.0.0`. Binding to the mesh interface means
-the listener does not exist on the node's LAN or its ISP-facing interface at all.
+Bind the mesh interface, not `0.0.0.0`. Chinvat refuses a non-loopback bind without a token and rejects tokens shorter than 24 characters.
 
-The hub now **refuses to start** on a non-loopback bind without a token, and
-refuses any token under 24 characters. That is deliberate: `system.run_command`
-is a `dangerous` operation, and an untokened off-box hub would publish it to
-whatever can reach the port. Both `/mcp` and `/api` require the bearer token.
+Equivalent environment overlays:
 
-Environment overrides are available if you prefer not to edit the file:
-`CHINVAT_BIND`, `CHINVAT_AUTH_TOKEN`, `CHINVAT_PORT`, `CHINVAT_DATA_DIR`.
+```text
+CHINVAT_BIND
+CHINVAT_AUTH_TOKEN
+CHINVAT_PORT
+CHINVAT_DATA_DIR
+```
 
-Start it, and keep the node's own tiers conservative — leave `system` at
-**approve** unless you have a specific reason not to.
+Environment overlays can be persisted into JSON by a later config save; read [Configuration](CONFIGURATION.md#environment-overlays).
 
-The node's own dashboard stays usable: opening `http://100.101.102.103:7777`
-prompts for the token once and remembers it in that browser. The live event
-stream at `/ws` is gated the same way, since it carries job arguments and
-results.
+Start the hub and keep the node’s `system` worker at `approve` until exact operations are tested.
 
-## Step 3 — register the node on your machine
+The node dashboard remains usable at its mesh URL. It prompts for the bearer token and stores it in that browser. `/mcp`, `/api`, and `/ws` are all gated.
 
-On your machine, open the dashboard, find the **remote-node** card, and set
-`nodes` to a JSON array:
+## 3. Register the node on the coordinator
+
+On the coordinator dashboard, open `remote-node` and configure `nodes`:
 
 ```json
 [
   {
-    "name": "gpu-us",
-    "url": "http://100.101.102.103:7777/mcp",
-    "token": "PASTE_THE_SAME_TOKEN",
-    "note": "5070 box — media engine"
+    "name": "gpu-node",
+    "url": "http://<node-mesh-address>:7777/mcp",
+    "token": "<same-token>",
+    "note": "remote GPU workstation"
   }
 ]
 ```
 
-Enable the module and select **Test connection**. Health reports how many nodes
-answered. Tokens are stored locally in `data/chinvat.config.json` and are never
-returned by any operation — `nodes_list` shows `authenticated: true` and nothing
-more.
+Enable the module, keep tier `approve`, save, and run **Test connection**.
+
+Tokens are stored in the coordinator’s local config and are never returned by operations. `nodes_list` reports only whether authentication is configured.
 
 ## Operations
 
-| Operation | Risk | What it does |
-| --- | --- | --- |
-| `nodes_list` | read | Configured nodes and their transport classification. No network call. |
-| `node_health` | read | Handshake: reachability, hub build, enabled workers. |
-| `node_workers` | read | The node's full module list with health, tier and operations. |
-| `node_capabilities` | read | Operation schemas for one module on the node. |
-| `node_invoke` | act | Run a remote `read` or `act` operation. |
-| `node_invoke_privileged` | dangerous | Run any remote operation, including `dangerous` ones. Requires `confirm:"REMOTE_EXECUTE"`. |
-| `node_job_status` | read | Status, timing and recent events for a remote job. |
-| `node_job_result` | read | Final result and artifacts for a remote job. |
-| `node_job_cancel` | act | Cancel a remote job, or deny one waiting for approval there. |
+| Operation | Risk | Purpose |
+|---|---|---|
+| `nodes_list` | read | Local configured-node inventory; no network call. |
+| `node_health` | read | MCP reachability and node summary. |
+| `node_workers` | read | Enabled workers, health, tiers, and operations. |
+| `node_capabilities` | read | Schemas and declared risks for one remote worker. |
+| `node_invoke` | act | Submit remote `read` or `act`; refuses remote `dangerous`. |
+| `node_invoke_privileged` | dangerous | Submit any remote operation; requires `confirm:"REMOTE_EXECUTE"`. |
+| `node_job_status` | read | Read one known remote job’s state/events. |
+| `node_job_result` | read | Retrieve one known remote job’s result/artifacts. |
+| `node_job_cancel` | act | Cancel or deny one known remote job. |
 
-### Why there are two invoke operations
+## Risk does not disappear through the proxy
 
-Proxying must not launder risk. If a single `act` operation could reach
-`system.run_command` on the node, the local `act` gate would silently stand in
-for a `dangerous` one.
+Before `node_invoke` submits work, it asks the node for the target operation’s declared risk. Remote `dangerous` operations are refused.
 
-So `node_invoke` asks the node for the operation's declared risk **before**
-submitting, and refuses anything the node marks `dangerous`. Reaching those
-requires `node_invoke_privileged`, which is `dangerous` locally *and* demands an
-explicit confirm string. The node's own tier still applies on top: a remote
-`dangerous` operation on an `approve`-tier module returns
-`waiting_approval`, and someone has to approve it there.
+`node_invoke_privileged` is itself `dangerous` on the coordinator, requires the explicit confirmation string, and then submits to the node. The node’s own tier still applies, so the work may also stop at the remote approval queue.
 
-## Typical use
+This is deliberate double governance, not duplication.
 
-Discover what the node can do:
+## Recommended call pattern
+
+Discover first:
 
 ```json
-{ "module": "remote-node", "operation": "node_workers", "args": { "node": "gpu-us" } }
+{
+  "module": "remote-node",
+  "operation": "node_workers",
+  "args": { "node": "gpu-node" }
+}
 ```
 
-Run a local model on the node's GPU:
+Read-only remote work can use sync:
 
 ```json
 {
   "module": "remote-node",
   "operation": "node_invoke",
   "args": {
-    "node": "gpu-us",
+    "node": "gpu-node",
     "module": "ollama",
     "operation": "chat",
-    "args": { "prompt": "summarize this transcript", "model": "qwen3" }
+    "args": { "model": "qwen3", "prompt": "Summarize this text" },
+    "mode": "sync"
   }
 }
 ```
 
-Long jobs — a transcode, a model pull — should go `async` and be collected later:
+Long or approval-prone work should use async:
 
 ```json
-{ "module": "remote-node", "operation": "node_invoke",
-  "args": { "node": "gpu-us", "module": "ollama", "operation": "pull_model",
-            "args": { "model": "qwen3:32b" }, "mode": "async" } }
+{
+  "module": "remote-node",
+  "operation": "node_invoke",
+  "args": {
+    "node": "gpu-node",
+    "module": "ollama",
+    "operation": "pull_model",
+    "args": { "model": "qwen3:32b" },
+    "mode": "async"
+  }
+}
 ```
 
-then poll with `node_job_status` and read `node_job_result`.
+Preserve the returned remote job id, then use `node_job_status` and `node_job_result`.
 
-## Security notes
+## Current limitations
 
-- **The mesh is the perimeter.** Any device on the tailnet that holds the token
-  can reach the node. Use ACLs to restrict which peers may talk to port 7777,
-  and keep the peer list small.
-- **One token per node.** Rotating a node's `authToken` is a config edit plus a
-  restart on that node, and a config edit on every coordinator that dials it.
-- **Physical and legal reality.** A machine you control remotely sits on someone
-  else's power, network and jurisdiction. Agree with its owner on what it may be
-  used for before pointing an agent at it.
-- **Do not feed untrusted content to a privileged agent.** `node_invoke_privileged`
-  is remote code execution by design; the confirm string and the approval gates
-  are mitigations, not a sandbox.
-- **Not covered here:** interactive desktop access. For that, run Sunshine on the
-  node with Moonlight on your side, or RDP over the same mesh. Chinvat is the
-  automation channel, not a remote-desktop product.
+These are shipped defects/backlog, not configuration mistakes:
+
+1. **Sync waits can lose approval-prone job ids.** A remote `act`/`dangerous` call may stop at `waiting_approval`; the local sync wait can exceed the MCP client timeout before the id reaches the coordinator. Until fixed, use async for every non-read operation that might be gated.
+2. **No remote job or approval listing.** Only status/result/cancel by known id exist. A lost id is not recoverable through `remote-node` today.
+3. **`EADDRINUSE` does not exit the hub process.** The HTTP server logs the bind error but the process remains alive without a listener. Supervisors must verify the port, not only process liveness, until the process exits non-zero on listen failure.
+4. **No top-level network Settings panel.** `bind`, `port`, and `authToken` are JSON/environment settings.
+5. **No live ConfigStore reload.** Restart any separate stdio hub after changing its shared config.
+
+## Windows deployment notes
+
+- Do not clone into `C:\Windows\System32`. An elevated shell starts there and inherited ACLs can make SQLite/config unwritable after moving the tree.
+- Do not mix elevated and normal hub runs against one tree; created files can become inaccessible to the normal process.
+- A simple logon launcher is acceptable for a personal node, but monitor both process and port. A service/supervisor should restart on non-zero exit once the `EADDRINUSE` defect is fixed.
+- Keep logs under the Chinvat data/tree, rotate them, and never print bearer tokens.
+- Tailscale may connect before or after a logon script depending on host state; verify actual bind success rather than assuming startup order.
+
+## Security and operations
+
+- The mesh is the perimeter, not the sole control. Use peer ACLs and the hub token together.
+- Use one token per node. Rotate any token pasted into chat, logs, tickets, or shell history.
+- Rotation requires updating the node `authToken`, updating every coordinator’s node entry, and restarting affected hub processes.
+- Restrict `system.allowedRoots`; do not grant full disk merely because the machine is remote.
+- Do not feed untrusted content to an agent able to use `node_invoke_privileged`.
+- The machine remains subject to its owner, network, power, and jurisdiction. Agree on permitted workloads.
+- For interactive desktop access, use RDP or Sunshine/Moonlight over the same private mesh. Chinvat is the automation channel.
