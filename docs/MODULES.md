@@ -1,91 +1,220 @@
 # Modules guide
 
-Every module is configured on the dashboard's **Modules** page. Secrets are stored only in `data/chinvat.config.json` on your machine and are sent only to the service they belong to. Each module has a policy **tier** (observe / approve / autonomous) — see the [README](../README.md#policy-what-crosses-the-bridge). Every card has a **Test connection** button that re-runs the module's health check.
+The dashboard **Modules** page is the primary configuration surface. Every worker has:
 
-The 20 built-ins are `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `woocommerce`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`, `gmail`, `chat-relay`, and `remote-node`. The first-boot enabled set is `ollama`, `openrouter`, `system`, `telegram`, and `wordpress`; the remaining modules are disabled until configured.
+- an enabled switch;
+- a policy tier: `observe`, `approve`, or `autonomous`;
+- schema-driven configuration fields;
+- a health check through **Test connection**;
+- fixed operations with declared `read`, `act`, or `dangerous` risk.
 
-## ollama — local models
-Install [Ollama](https://ollama.com) and pull a model (`ollama pull qwen3`). Fields: `Base URL` (default `http://127.0.0.1:11434`) and `Default model` (default `qwen3`). Operations: `chat`, `generate`, `embeddings`, `list_models`, `pull_model`. Default tier: autonomous; `pull_model` is `act`, while the other operations are `read`.
+Health proves the configured endpoint or identity can answer. It may not prove every optional scope, product entitlement, credit balance, or destructive action. After health succeeds, test one real low-impact operation.
 
-## openrouter — remote specialists
-Create a key at openrouter.ai. Fields: `API key`, `Default model` (default `openrouter/auto`), and comma-separated private model/provider allowlists. The base URL is fixed to `https://openrouter.ai/api/v1` and is not configurable. Operations: `chat`, `private_chat`, `list_models`, `key_info`. `private_chat` requires ephemeral invocation, checks the live ZDR endpoint inventory, rejects implicit caching, pins one allowlisted provider/model, denies data collection and fallbacks, and returns the actual route. Default tier: autonomous.
+Chinvat registers 20 built-ins:
 
-## openai-compatible — any OpenAI-compatible API
-One reusable worker for **NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure**, and similar. Fields: `Base URL` (with or without a trailing `/v1` — it is normalized, never duplicated), `API key` (the provider's own key, sent only to that Base URL), `Default model`, and optional `Custom headers (JSON)`. Operations: `chat` (`prompt` or `messages`, optional `model`/`temperature`/`max_tokens`), `list_models`, `embeddings` (returns a clear capability error if the provider has no embeddings endpoint). Inference is `read`-risk. Disabled by default; enable it after configuring, then select **Test connection**.
+```text
+ollama openrouter openai-compatible system telegram wordpress woocommerce
+coolify blender orca gimp rhino whatsapp facebook instagram linkedin x
+gmail chat-relay remote-node
+```
 
-**NVIDIA example** — `Base URL` `https://integrate.api.nvidia.com/v1`, `API key` from [build.nvidia.com](https://build.nvidia.com) beginning `nvapi-`, and `Default model` e.g. `nvidia/llama-3.3-nemotron-super-49b-v1.5` (run `list_models` for exact IDs). The key goes directly to NVIDIA, never through OpenRouter. Some models and tiers require enabled access; the free tier is rate-limited. Only one `openai-compatible` instance runs today; named instances (`nvidia`, `groq`, …) are roadmap work, not shipped modules.
+First-boot enabled: `ollama`, `openrouter`, `system`, `telegram`, `wordpress`. The rest are disabled until configured.
 
-## system — the Windows machine
-Runs PowerShell commands and file operations, fenced to **allowedRoot** (your home directory by default; widen it or set `allowFullAccess` deliberately). Operations include `run_command` and `delete_path` (both `dangerous`), `read_file`/`write_file`/`move_path`, `open_app`, `process_list`, `system_info`. Default tier: **approve** — dangerous ops wait for you.
+## Model workers
 
-## coolify — managed server workloads
-Connects to a self-hosted Coolify instance through its scoped API. Fields: `Coolify URL`, `API token`, and optional request timeout. Inventory covers servers, server resources, projects, applications, databases, services, and deployments; `infrastructure_overview` returns compact counts and workload statuses. Lifecycle operations deploy, validate, start, restart, stop, or cancel supported Coolify resources. The module is disabled by default and defaults to **approve**: reads run immediately, deploy/start/restart/validate wait for approval, and downtime-causing stop/cancel operations are marked `dangerous`. Use a team-scoped token with `read` plus only the needed `deploy`/`write` permissions; do not use `root`. This worker controls resources known to Coolify, not OpenStack VM, volume, network, or security-group APIs.
+### `ollama` — local models
 
-## blender — local 3D scenes
-Version `0.1.0` controls Blender through the pinned [Blender bridge add-on](../app-bridges/blender/README.md), over TCP `127.0.0.1:9876`. Install and enable the add-on, then in the 3D-viewport sidebar (**N**) open the **BlenderMCP** tab and select **Connect to Claude**. The adapter bypasses the add-on's MCP server and speaks its socket protocol directly. Fields: `host` (default `127.0.0.1`), `port` (default `9876`), and `python_enabled` (default off). Operations: `scene_info`, `object_info`, `viewport_snapshot` (PNG artifact for visual verification), and `execute_python` (arbitrary `bpy`, `dangerous`). `execute_python` is local code execution by design: it needs both the module's `python_enabled` opt-in and the normal policy approval path.
+Fields: base URL (`http://127.0.0.1:11434`) and default model (`qwen3`).
 
-## orca — settings and slicing, not printer control
-Version `0.1.0` drives a pinned **CLI-capable Orca-lineage slicer** by process spawn—no socket and no plug-in. It controls profiles and geometry, never raw G-code, printer control, machine geometry, or start/end G-code. Fields: `exe_path`, `data_dir`, `project_dir` (confined model inputs), `output_dir`, and `max_slice_seconds`. All paths must be absolute. `profiles_list` reads user and vendor machine/process/filament presets (optional `category` and `filter`, max 300); `profile_read` reads one result; `slice_model` takes a model and a matching machine/process/filament triplet, then produces a 3MF with G-code at `Metadata/plate_N.gcode` and saves the exact resolved profiles beside it. Under `system`, returned `rel_path`s include the vendor segment: `system/<vendor>/<category>/*.json`.
+Operations: `chat`, `generate`, `embeddings`, `list_models`, `pull_model`. Inference and inventory are `read`; model pulling is `act`. Default tier: `autonomous`.
 
-Use the shipped preset triplet for the selected printer/nozzle, clone it in later profile-editing work, patch only needed settings, slice, inspect the output, and re-slice. Do not derive a printer profile from scratch. Mainline OrcaSlicer for Windows is currently not headless-capable: its GUI-only launcher has no `orca-slicer-console.exe` and throws during early initialization. Point `exe_path` at a CLI-capable Orca build instead; the adapter was validated with Anycubic Slicer Next. See the [design](DESIGN-local-app-bridges.md#5a-orcaslicer-parallel-track--different-transport).
+`chat` and `generate` forward top-level `think` and `format` values, including JSON Schema objects. Ollama is in the default `ephemeralModules` allowlist, so read operations may use `adapter_invoke {ephemeral:true}` with no persistence.
 
-## gimp — local 2D images
-Version `0.1.0` connects GIMP 3 to the user-installed `maorcc/gimp-mcp` plug-in on TCP `127.0.0.1:9877`. The plug-in is GPLv3 and **is not vendored** into this MIT repository; only Chinvat's MIT socket adapter is included. Fields: `host`, `port` (default `9877`), and `python_enabled` (default off). Operations: `gimp_info`, `image_metadata`, `snapshot` (PNG artifact; optional scaling), and `execute_python` (PyGObject lines, `dangerous`). Follow the two required manual steps in [GIMP setup](../app-bridges/gimp/SETUP.md): install it in its same-named subfolder, then for every GIMP session open an image and select **Tools → MCP → Start MCP Server**. As with Blender, Python execution requires the toggle and policy approval.
+### `openrouter` — hosted specialists
 
-## remote-node — other machines, as workers
+Fields: API key, default model, and allowlists for private models/providers. The base URL is fixed to `https://openrouter.ai/api/v1`.
 
-Version `0.1.0` federates other Chinvat hubs over MCP Streamable HTTP. Each remote machine runs its **own** full hub, keeping its own modules, policy tiers, approval queue and job ledger; this module is a client to them. Fields: `nodes` (a JSON array of `{name, url, token, note?}`, stored as a secret), `timeoutMs` (default `60000`), and `allowInsecureHttp` (default off). Disabled by default, at the **approve** tier.
+Operations: `chat`, `private_chat`, `list_models`, `key_info`. `private_chat` is ephemeral-only, validates the live zero-data-retention endpoint inventory, pins an allowlisted route, denies fallbacks/data collection, and returns the actual route used. Default tier: `autonomous`.
 
-Operations: `nodes_list`, `node_health`, `node_workers`, `node_capabilities` (`read`); `node_invoke`, `node_job_cancel` (`act`); `node_job_status`, `node_job_result` (`read`); and `node_invoke_privileged` (`dangerous`).
+### `openai-compatible` — direct compatible endpoints
 
-Transport is constrained. Plain `http` is accepted only to loopback, mesh addresses (Tailscale/Headscale `100.64.0.0/10`, `fd7a:115c:a1e0::/48`, `*.ts.net`) and RFC1918 private ranges — contexts where an encrypted overlay or a LAN already carries the link. A public host requires `https` unless `allowInsecureHttp` is set explicitly. Any node that is not loopback must carry a token. URLs may not embed credentials, and tokens are never returned by any operation.
+Use one worker for NVIDIA NIM/Nemotron, Groq, Together, Azure, LM Studio, vLLM, and similar APIs.
 
-Proxying does not launder risk. `node_invoke` asks the node for the target operation's declared risk before submitting and refuses anything the node marks `dangerous`; those require `node_invoke_privileged`, which is `dangerous` locally and additionally requires `confirm:"REMOTE_EXECUTE"`. The remote hub's own tier still applies on top, so a remote `dangerous` operation can still stop at `waiting_approval` there. Setup and the security model are in [Remote Nodes](REMOTE-NODES.md).
+Fields: base URL, provider API key, default model, optional custom headers JSON. The base URL is normalized to one `/v1`.
 
-## telegram — messaging + approvals
-Create a bot with [@BotFather](https://t.me/botfather) and paste the token. To get your `chatId`, send the bot a message then use the `get_updates` operation (Playground) and read the chat id. Enable **approvalButtons** to approve/deny jobs from your phone; enable **notifyJobs** for completion pings. Operations: `send_message`, `send_document`, `get_me`, `get_updates`.
+Operations: `chat`, `list_models`, `embeddings`. Inference is `read`. Provider-named instances are not shipped yet.
 
-## wordpress — publishing
-In WP Admin → **Users → Profile → Application Passwords**, create one for Chinvat. Enter site URL, username, and the application password. Core REST operations: `site_info`, `list_posts`, `get_post`, `create_post`, `update_post`, `publish_post`, `delete_post`, `upload_media`, `list_media`, `get_media`, `update_media`, `delete_media`, `list_categories`, `list_tags`, `create_page`, `list_pages`, `get_page`, `update_page`, `publish_page`, `delete_page`, `list_navigation`, `get_navigation`, `update_navigation`. Bridge operations: `bridge_info`, `bridge_option_get`, `bridge_option_update`, `bridge_theme_list`, `bridge_theme_read`, `bridge_theme_write`, `bridge_rankmath_get`, `bridge_rankmath_update`, `bridge_plugins_list`, `bridge_plugins_toggle`, `bridge_theme_scaffold_child`, `bridge_db_state`, `bridge_global_styles_get`, `bridge_global_styles_update`, `bridge_global_styles_reset`, `bridge_template_list`, `bridge_template_get`, `bridge_template_update`, `bridge_template_reset`. `create_post`/`create_page` make **drafts**; publishing, content deletion, navigation updates, `bridge_theme_write`, and `bridge_theme_scaffold_child` are `dangerous`.
+## Machine and infrastructure
 
-Adapter 0.4.0 makes page editing symmetrical with posts: `get_page` returns raw editable block markup and `update_page` patches only supplied fields without changing publication status. `list_navigation`/`get_navigation` expose `wp_navigation`; `update_navigation` writes title, slug, or block markup and is `dangerous` because a published menu can change immediately. Media has list/get/update metadata operations; `delete_media` requires explicit `force:true` and permanently removes the attachment. `featured_media` is accepted by post/page create and update operations; `0` clears it. `upload_media` accepts exactly one source: a public `source_url`, or `content_base64` with `filename` and `mime_type`. Both paths are capped at 20 MiB. URL downloads allow HTTP(S) only, reject private/non-routable addresses on every redirect, and accept images, audio, video, PDF, DOC, and DOCX MIME types. Base64 is the intended handoff after an authenticated connector downloads a private Drive file; Chinvat does not authenticate to Drive itself.
+### `system` — shell, files, processes, and applications
 
-Core REST writes use the configured WordPress Application Password and remain subject to WordPress's own per-resource capability checks and sanitization. Chinvat's risk tier is an additional execution boundary, not a replacement for WordPress authorization.
+Default tier: `approve`.
 
-## woocommerce — store management
+Key operations:
 
-The separate `woocommerce` worker uses the authenticated `/wp-json/wc/v3` API for catalog, order, customer, coupon, shipping, tax, payment, settings, webhook, reporting, and reference-data work. Configure `siteUrl`, `username`, and a WordPress Application Password for a user with `manage_woocommerce`; keep the module on its default **approve** tier. It is disabled until configured.
+- reads: `list_dir`, `read_file`, `process_list`, `system_info`;
+- acts: `write_file`, `move_path`, `open_app`;
+- dangerous: `run_command`, `delete_path`.
 
-The worker exposes 144 fixed operations and no raw-request escape hatch. Reads run immediately. Catalog writes are `act`; financial, customer, checkout, configuration, webhook, batch, publish, and destructive writes are `dangerous`. Every write supports `dry_run`; updates and deletes capture before-state, and scalar create/update fields are read back. Permanent deletes, batch deletions, refund creation, and system-tool runs additionally require `force:true` plus `confirm:"PERMANENT_DELETE"` (a non-mutating dry run may omit them). Product creation is forced to draft, and product/variation updates refuse `fields.status`; use `wc_product_publish` explicitly.
+Filesystem access is fenced by `allowedRoots` (array or semicolon/comma-delimited string). Legacy `allowedRoot` remains supported. Relative paths resolve under the first root. `allowFullAccess:true` disables the fence deliberately.
 
-Targets are validated before Basic credentials are attached: HTTPS is required, embedded URL credentials and cloud-metadata/link-local targets are forbidden, and HTTP/private/loopback development stores require the explicit `allowInsecureHttp` toggle. Pagination is capped at 100 and batch arrays at 25. Route identifiers are validated and undeclared query keys are dropped. Errors are truncated and scrubbed of credentials. `wc_connection_check`, `wc_permissions_check`, and a small list call are the recommended first read-only checks.
+On Windows, the adapter repairs stripped MCP launcher environments before spawning (`PATHEXT` and `ComSpec`) and its health check requires real child-process stdout evidence. This prevents detached/no-output false success.
 
-The optional [Chinvat WP Bridge](../wp-plugin/chinvat-bridge/README.md) complements this core-REST adapter with 18 WordPress Abilities. Version `0.4.3` includes eight DB-layer primitives for user Global Styles (`wp_global_styles`) and Site Editor templates/parts (`wp_template`, `wp_template_part`)—the database overrides that win over theme files at runtime. The authenticated `GET /wp-json/chinvat-bridge/v1/info` handshake uses schema `4` and reports the toggles, PHP lint backend/runtime diagnostics, and all 18 capability/risk records.
+### `coolify` — managed workloads
 
-The TypeScript adapter version `0.4.0` ships the fixed 19-operation `bridge_*` list above. `bridge_info` returns the handshake. Read abilities use GET; destructive-annotated small-scalar abilities use DELETE with nested query input; content-bearing writes use POST with `{"input":{...}}`. This HTTP annotation is separate from Chinvat's `read` / `act` / `dangerous` policy risk. Calls use normal jobs/policy. `health()` performs best-effort detection and appends the Bridge version and write state when available; an absent Bridge does not make core WordPress health fail. This is not runtime discovery of arbitrary abilities.
+Connects to a self-hosted Coolify API with a scoped token. Inventory covers servers, projects, applications, databases, services, deployments, and a compact infrastructure overview.
 
-Call `bridge_db_state` before styling work to see the active theme, user Global Styles state, and DB template/part overrides. `bridge_global_styles_get` reads the theme.json-shaped user config; `bridge_global_styles_update` accepts `styles` plus optional `merge`; `bridge_global_styles_reset` trashes the override unless `force:true`. `bridge_template_list`/`get` resolve the runtime view where DB wins; `bridge_template_update` creates or updates block markup; `bridge_template_reset` removes the override and reports whether a theme file remains. Reads require `edit_theme_options`. All four DB writes are `act` and additionally require **Developer Mode** and **DB Layer (Global Styles & Templates)**, so they wait at the `approve` tier.
+Reads run immediately. Deploy/start/restart/validate are `act`; downtime-causing stop/cancel operations are `dangerous`. Use a team-scoped token with only required permissions, never a root token. This worker manages resources represented inside Coolify, not raw OpenStack infrastructure.
 
-On some hosts, `wp_update_post` fatals for `wp_global_styles`. Bridge 0.4.2 deliberately implements Global Styles update as hard-delete plus reinsert; revisions are lost. A raw `503` can mean PHP died mid-request and the mutation may have partially applied—run `bridge_db_state` before retrying. For deployment, the ZIP top level must be exactly `chinvat-bridge/`; a wrapper directory installs a duplicate plugin. Trust `bridge_info` and `bridge_plugins_list` over a stale WP Admin plugin row.
+### `remote-node` — other Chinvat hubs
 
-Writes require **Developer Mode** (or the back-compatible `CHINVAT_BRIDGE_ENABLE` constant); `theme-write`, `theme-scaffold-child`, `options-update`, and `plugins-toggle` also have dedicated toggles. **Child Theme Scaffold** creates a block-aware child of the active theme's base and activates it by default, giving `theme-write` an update-resistant target; it is `dangerous` and pauses for approval at the `approve` tier. It writes `style.css`, minimal `theme.json`, a trusted plugin-authored `functions.php` that enqueues `get_stylesheet_uri()`, optional header/footer parts, and `templates/`. This loader is needed because block themes do not automatically load a child `style.css`. It is a scaffold, not a full theme clone. `theme-write` is **RCE by design**; agent-supplied PHP must pass the in-process Zend syntax parser or a resolved PHP CLI fallback, and the write fails closed if neither is available. Non-PHP writes are unaffected. The scaffold's static `functions.php` uses its confined child writer rather than the `theme-write` lint path. Use a dedicated admin application password, do not expose MCP to untrusted callers, and do not feed a write-enabled agent untrusted content. Confinement, validation, linting, backup, and policy gates are mitigations, not absolute security. See the plugin README for the full security model and its explicit Expert overrides.
+Version `0.1.0`, disabled by default, tier `approve`.
 
-## whatsapp — WhatsApp Business Cloud API
-Requires a Meta app with WhatsApp added: a permanent **access token** and a **phone number ID** (Meta for Developers → WhatsApp → API Setup). Recipients outside the 24-hour window need an approved **template** (`send_template`); inside it, `send_text` works. `phone_info` checks setup.
+Fields: `nodes` JSON array of `{name,url,token,note?}`, `timeoutMs`, and `allowInsecureHttp`.
 
-## facebook — Page publishing
-Needs a **Page ID** and a long-lived **page access token** with `pages_manage_posts` (Graph API Explorer → generate → extend). Operations: `create_post`, `list_posts`, `delete_post` (`dangerous`), `page_info`.
+Operations:
 
-## instagram — Graph API (business/creator)
-Needs the IG **business account ID** and an access token with Instagram permissions, linked to a Facebook Page. `publish_photo` takes a **publicly reachable** image URL (two-step container publish). Also `list_media`, `account_info`.
+| Operation | Risk |
+|---|---|
+| `nodes_list`, `node_health`, `node_workers`, `node_capabilities` | read |
+| `node_job_status`, `node_job_result` | read |
+| `node_invoke`, `node_job_cancel` | act |
+| `node_invoke_privileged` | dangerous |
 
-## linkedin — member posts
-A 3-legged OAuth **access token** with the `w_member_social` scope (Share on LinkedIn product). Find your **author URN** by running the `me` operation — it returns `urn:li:person:<sub>`. Operation: `create_post`.
+Each node is a complete governed hub with its own modules, tiers, approvals, and ledger. Plain HTTP is accepted only for loopback, RFC1918, Tailscale/Headscale ranges, or `*.ts.net`; public hosts require HTTPS unless explicitly overridden. Off-box nodes require a token. Embedded URL credentials are refused and tokens are never returned.
 
-## x — X (Twitter)
-A 3-legged OAuth 2.0 **user access token** from an app at [developer.x.com](https://developer.x.com) with scopes `tweet.read`, `tweet.write`, `users.read`. Operations: `post_tweet` and `delete_tweet` (delete is `dangerous`), `me`, `search_recent`. Note: posting and search require a **write/read-enabled API access tier** — the free tier is limited, and `search_recent` needs at least Basic.
+`node_invoke` resolves remote risk before submission and refuses remote `dangerous`. `node_invoke_privileged` additionally requires `confirm:"REMOTE_EXECUTE"`; the node’s own policy still applies.
 
----
+Current limitation: use async for non-read calls that may wait for approval, because a sync timeout can hide the returned remote job id. There is not yet a remote jobs/approvals list operation. See [Remote Nodes](REMOTE-NODES.md).
 
-### Adding your own module
-Drop a folder in `modules/` exporting a default object that implements the `ChinvatAdapter` contract (`hub/src/types.ts`): `name`, `configSchema`, `capabilities()`, `health()`, `invoke()`. It loads at boot, defaults to the `approve` tier, and appears in the dashboard automatically.
+## Publishing and commerce
+
+### `wordpress` — core REST plus optional WP Bridge
+
+Configure site URL, username, and a WordPress Application Password.
+
+Core REST covers site info, posts, pages, categories, tags, media, featured media, and `wp_navigation`. Creation makes drafts; publishing and destructive content/navigation operations are `dangerous`.
+
+Media upload accepts exactly one source:
+
+- bounded public `source_url`, with redirect/address/MIME checks; or
+- `content_base64` with filename and MIME, suitable after an authenticated connector downloads a private file.
+
+The optional [Chinvat WP Bridge](../wp-plugin/chinvat-bridge/README.md) `0.4.3` exposes 18 WordPress Abilities plus an authenticated schema-4 handshake. The TypeScript adapter maps them to 19 fixed `bridge_*` operations—no arbitrary ability discovery—including options, theme files, RankMath, plugin toggle, child-theme scaffold, DB state, Global Styles, and Site Editor templates/parts.
+
+Bridge writes require Developer Mode and their dedicated toggles. `bridge_theme_write` and `bridge_theme_scaffold_child` are `dangerous`. Agent-supplied PHP is parsed by the running Zend engine or a verified CLI fallback and fails closed if no lint backend exists. This reduces risk; it does not make remote code execution safe.
+
+Before style/template work, call `bridge_db_state`. DB overrides win over theme files at runtime. On hosts where WordPress fatals while updating `wp_global_styles`, the bridge uses delete-and-reinsert; revisions are lost, so inspect state before retrying an ambiguous `503`.
+
+### `woocommerce` — guarded store management
+
+Separate from `wordpress`, disabled by default, tier `approve`. Configure site URL, a user with `manage_woocommerce`, and a WordPress Application Password.
+
+The worker exposes 144 fixed `/wc/v3` operations with no raw-request escape hatch. It covers catalogue, orders, customers, coupons, shipping, taxes, payment, settings, webhooks, reports, and reference data.
+
+- Reads are `read`.
+- Bounded catalogue writes are generally `act`.
+- Financial, customer, checkout, configuration, webhook, batch, publication, system-tool, and destructive writes are `dangerous`.
+
+Every write supports `dry_run`. Updates/deletes capture before-state; scalar writes are read back. Permanent deletion, batch deletion, refunds, and system tools require `force:true` plus `confirm:"PERMANENT_DELETE"`. Product creation is forced to draft and status changes go through explicit publication operations.
+
+Targets are validated before credentials are attached. Public stores require HTTPS; local/private HTTP requires `allowInsecureHttp`; link-local/cloud-metadata targets and embedded credentials are always rejected.
+
+## Messaging and social
+
+### `telegram` — messaging and approvals
+
+Fields: bot token, chat id, optional approval buttons and job notifications. Operations include `send_message`, `send_document`, `get_me`, and `get_updates`. Default tier: `approve`.
+
+Only one process should long-poll a bot token. Telegram buttons can approve or deny waiting jobs through the hub facade.
+
+### `whatsapp` — WhatsApp Business Cloud API
+
+Requires a Meta access token and phone-number id. Inside the 24-hour service window use `send_text`; outside it use an approved template through `send_template`. `phone_info` checks configuration.
+
+### `facebook` — Page publishing
+
+Requires a Page id and long-lived page access token with `pages_manage_posts`. Operations include page info, list/create posts, and dangerous deletion.
+
+### `instagram` — business/creator Graph API
+
+Requires an Instagram business/creator account linked to a Facebook Page, its account id, and suitable token. `publish_photo` needs a publicly reachable image URL. Inventory operations are read-only.
+
+### `linkedin` — member publishing
+
+Requires three-legged OAuth and `w_member_social`. Run `me` to obtain the exact author URN. Publishing is side-effecting and should remain approval-gated.
+
+### `x` — X/Twitter API
+
+Requires an OAuth 2.0 user token with `tweet.read`, `tweet.write`, and `users.read`. Operations: `post_tweet`, `delete_tweet`, `me`, `search_recent`. Deletion is `dangerous`; API access tiers and rate limits are provider constraints.
+
+### `gmail` — OAuth2 mail carrier
+
+Disabled by default, tier `approve`. Configure OAuth installed-app `client_id`, `client_secret`, `refresh_token`, optional poll interval, and processed label. Setup: [Gmail module setup](../app-bridges/gmail/SETUP.md).
+
+Operations:
+
+- `send_mail` — `act`;
+- `poll_matching`, `read_message`, `list_drafts`, `read_draft` — `read`;
+- `label_processed` — `act`.
+
+A short-lived access token is minted per call and not persisted. Gmail is usable standalone, but its primary role is transport for `chat-relay`.
+
+## Local applications
+
+### `blender` — 3D scenes
+
+TCP `127.0.0.1:9876` through the pinned Blender add-on. Read operations: `scene_info`, `object_info`, `viewport_snapshot`. `execute_python` is arbitrary local `bpy` execution, therefore `dangerous` and separately gated by `python_enabled`.
+
+Setup: [Blender bridge](../app-bridges/blender/README.md).
+
+### `orca` — profiles and slicing, not printer control
+
+Launches a pinned CLI-capable Orca-lineage slicer. Fields: executable, slicer data dir, confined project dir, output dir, timeout.
+
+Operations: `profiles_list`, `profile_read`, `slice_model`. Inputs/outputs/profiles are path-confined; resolved profile snapshots are saved beside output for reproducibility. It does not control printers or expose raw G-code editing. Stock Windows OrcaSlicer is currently not headless-capable; use a compatible CLI build such as the tested Anycubic Slicer Next lineage.
+
+### `gimp` — GIMP 3 image bridge
+
+TCP `127.0.0.1:9877` through user-installed `maorcc/gimp-mcp`; the GPL plug-in is not vendored. Read operations: `gimp_info`, `image_metadata`, `snapshot`. `execute_python` is `dangerous` and requires `python_enabled`.
+
+Each GIMP session requires opening an image and selecting **Tools → MCP → Start MCP Server**. Setup: [GIMP](../app-bridges/gimp/SETUP.md).
+
+### `rhino` — Rhino 8 bridge
+
+Framed TCP `127.0.0.1:1999` through the user-installed `jingcheng-chen/rhinomcp` plug-in. Run `mcpstart` each Rhino session.
+
+Read operations: `document_summary`, `object_info`, `viewport_snapshot`. `execute_rhinoscript` is `dangerous` and separately gated by `rhinoscript_enabled`. Setup: [Rhino](../app-bridges/rhino/SETUP.md).
+
+All visual workers return PNG snapshots as artifacts for a vision-capable coordinator. Chinvat itself does not perform visual inference.
+
+## Governed coding relay
+
+### `chat-relay` — repository packet, validation, and apply
+
+Disabled by default, tier `approve`. Fields: default return instruction/address, default lane (`chatgpt`, `gemini`, `generic`), optional file-import directory.
+
+Lifecycle:
+
+```text
+compiled → dispatched → imported → validated_pass → applied
+                               └→ validated_fail → repair | rejected
+```
+
+Operations:
+
+| Operation | Risk | Meaning |
+|---|---|---|
+| `relay_create`, `relay_import`, `relay_status`, `relay_list`, `relay_repair` | read | compile/parse/inspect; no execution or live mutation |
+| `relay_dispatch`, `relay_validate`, `relay_reject` | act | egress, scratch execution, or scratch cleanup |
+| `relay_apply` | dangerous | mutate the live repository branch |
+
+The packet compiler refuses tracked secret files, redacts inline credential patterns, computes a classification, and enforces the caller’s ceiling. Replies must match `TASK_ID`, `PACKET_SHA`, and `BASE_COMMIT`. Validation occurs in a disposable worktree. Gmail is an optional carrier; clipboard and file remain first-class transports.
+
+See [Mail Relay design](DESIGN-mail-relay.md).
+
+## Adding an external module
+
+Create `modules/<name>/index.mjs` or `index.js` exporting a default adapter (or `adapter`) implementing `ChinvatAdapter` from `hub/src/types.ts`. At boot it is loaded, materialized in config, defaults to tier `approve`, and appears in the dashboard.
+
+Keep external adapters small, fixed-surface, and explicit about risk. Do not expose arbitrary method/path escape hatches where a bounded operation catalogue is possible.
