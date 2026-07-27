@@ -1,91 +1,169 @@
 # Configuring Chinvat
 
-The dashboard and hub at `http://localhost:7777` are the primary configuration surface.
+The dashboard at `http://localhost:7777` is the primary configuration surface. Top-level network/auth values may still require JSON or environment configuration.
 
 ## Modules
 
-For every module:
+For each worker:
 
 1. Enter the fields shown on its card.
-2. Keep secrets in the secret fields; do not put them in prompts.
+2. Keep credentials in secret fields, never in prompts.
 3. Enable the module.
-4. Select a policy tier.
+4. Select `observe`, `approve`, or `autonomous`.
 5. Save and run **Test connection**.
+6. Test one low-impact real operation.
 
-A green health result proves the configured identity or endpoint. It does not always prove every optional action: publishing APIs may require additional scopes, products, credits, or account review. Test one low-impact real operation before relying on a workflow.
+A healthy response proves the configured identity/endpoint answered. It does not guarantee every provider scope, product entitlement, access tier, credit balance, or dangerous operation.
 
-Exact service prerequisites and fields are listed in [Modules](MODULES.md).
+The complete 20-worker inventory and operation boundaries are in [Modules](MODULES.md).
 
-Chinvat has exactly 20 built-ins: `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `woocommerce`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`, `gmail`, `chat-relay`, and `remote-node`. By default, `ollama`, `openrouter`, `system`, `telegram`, and `wordpress` are enabled. The others remain disabled until configured; `woocommerce` and `remote-node` default to the **approve** tier.
+## Policy tiers
+
+Every operation declares `read`, `act`, or `dangerous`.
+
+- `observe`: reads run; side-effecting work is rejected.
+- `approve`: reads run; `act` and `dangerous` wait at `waiting_approval`.
+- `autonomous`: all declared operations run without a pause and remain logged.
+
+Start system, publishing, commerce, messaging, relay, and remote-control modules at `approve`. Raise autonomy only after testing the exact operations and provider identity.
 
 ## Connect
 
-Use **Connect** to attach a coordinator. Preview before applying. Chinvat backs up the existing client configuration and merges only the `chinvat` MCP entry.
+Use **Connect** to attach a coordinator. The flow previews the exact merge, creates a timestamped backup, writes only the `chinvat` MCP entry, and re-tests the endpoint.
 
-The local MCP endpoint is:
+Local HTTP endpoint:
 
 ```text
 http://127.0.0.1:7777/mcp
 ```
 
-HTTP is the default for Codex (`.codex/config.toml`, `url`), Claude Code (`.mcp.json`, `type:"http"` and `url`, or `claude mcp add`), Cursor (`.cursor/mcp.json`, `url`), Hermes (`~/.hermes/config.yaml`, then `/reload-mcp`), and generic clients. Claude Desktop has no native HTTP transport: use stdio with `command:"node"` and `args:[".../hub/dist/index.js","--stdio"]`, or HTTP through `npx mcp-remote`.
+HTTP is the default for Codex, Claude Code, Cursor, Hermes, and generic clients. Claude Desktop normally uses stdio because it has no native HTTP MCP transport; `mcp-remote` is the HTTP bridge option.
+
+For tokened hubs, prefer Connect-generated snippets. Client header syntax differs and the Connect flow includes the configured bearer token.
 
 ## Jobs and approvals
 
-Use **Jobs** to inspect queued, running, waiting, succeeded, or failed work. Approval authorizes an attempt; it does not guarantee the external API accepts it. Always inspect the final job status when a message or post is not visible.
+**Jobs** shows queued, running, waiting, succeeded, failed, and cancelled work. Approval authorizes an attempt; it does not guarantee the upstream service accepted or completed it. Always inspect final status and result.
 
-Use **Approvals** to approve or deny gated actions. Telegram approval buttons are optional and require a configured Telegram bot and chat ID.
+**Approvals** releases or denies gated work. Telegram approval buttons are optional and use the same approval records.
+
+Use async for long work. For current `remote-node` non-read operations, use async whenever the remote tier may pause for approval; otherwise the local sync wait can expire before returning the useful remote job id.
 
 ## Configuration file
 
-Chinvat creates:
+Default file:
 
 ```text
 data/chinvat.config.json
 ```
 
-The directory is git-ignored. Back it up securely if needed, but never commit or share it. Environment overrides:
+It is git-ignored and may contain long-lived credentials. Back it up securely if needed; never commit or share it.
 
-- `CHINVAT_PORT`
-- `CHINVAT_DATA_DIR`
-- `CHINVAT_BIND`
-- `CHINVAT_AUTH_TOKEN`
+Shape:
+
+```json
+{
+  "port": 7777,
+  "bind": "127.0.0.1",
+  "authToken": "",
+  "concurrencyPerModule": 2,
+  "syncWaitMsDefault": 120000,
+  "syncWaitMsMax": 600000,
+  "ephemeralModules": ["ollama"],
+  "modules": {
+    "system": {
+      "enabled": true,
+      "tier": "approve",
+      "config": {
+        "allowedRoots": "C:\\Users\\me\\Documents"
+      }
+    }
+  }
+}
+```
+
+## Environment overlays
+
+```text
+CHINVAT_PORT
+CHINVAT_DATA_DIR
+CHINVAT_BIND
+CHINVAT_AUTH_TOKEN
+```
+
+Environment values override JSON during process construction.
+
+Important persistence behavior: the overridden values become part of the process’s in-memory config. If that process later saves config—for example when a module is first materialized or changed—the top-level environment values can be written into `chinvat.config.json`. Do not assume a one-off environment launch remains temporary.
 
 ## Authentication and bind policy
 
-`bind` defaults to `127.0.0.1` and `authToken` defaults to empty, which keeps the
-local experience zero-config. Beyond loopback the rules are strict and enforced
-at startup:
+Defaults: loopback bind, empty token, zero-configuration local use.
 
-- A non-loopback `bind` with no `authToken` is a **startup error**, not a warning.
-  An untokened off-box hub would publish `system.run_command` to the network.
-- Any configured `authToken` must be at least 24 characters.
-- When a token is set, every `/mcp` and `/api` request must carry
-  `Authorization: Bearer <token>` — including on loopback.
-- The `/ws` event stream is gated identically. Browsers cannot set headers on a
-  WebSocket, so it accepts `?token=…`; an `Authorization` header still wins for
-  non-browser clients.
-- The dashboard prompts for the token when the hub answers 401 and keeps it in
-  that browser's local storage. Use **forget token** in the sidebar to clear it.
-  `GET /auth/required` is deliberately unauthenticated so the dashboard knows
-  whether to prompt; it reveals nothing a 401 would not.
+The hub enforces before listening:
 
-Generate one with:
+- any non-loopback `bind` requires `authToken`;
+- `authToken` must contain at least 24 characters;
+- a configured token gates `/mcp`, `/api`, and `/ws`, including on loopback.
+
+HTTP uses:
+
+```text
+Authorization: Bearer <token>
+```
+
+Browser WebSockets may send `?token=` because the browser WebSocket API cannot set arbitrary headers; a header takes precedence for non-browser clients.
+
+`GET /auth/required` is deliberately unauthenticated so the dashboard knows whether to prompt. The dashboard stores the entered token in browser local storage; use **forget token** to remove it.
+
+Generate a token:
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-The **Connect** page folds the token into the client snippets it generates, so a
-tokened hub stays one copy-paste away from a working coordinator.
+Remote deployment is covered in [Remote Nodes](REMOTE-NODES.md).
 
-Exposing a hub is covered end to end in [Remote Nodes](REMOTE-NODES.md).
+## Reload and multi-process behavior
+
+`ConfigStore` reads the JSON once when a process starts and keeps an in-memory copy. There is no file watcher or live reload.
+
+This matters because two common processes can share one file:
+
+1. `npm start` runs the dashboard/HTTP hub.
+2. Claude Desktop or another client may spawn a separate `--stdio` hub.
+
+A dashboard module toggle updates the HTTP process and the file, but an already-running stdio process does not see it. Restart the coordinator process fully—tray included where applicable—after changing modules used through stdio.
+
+Likewise, rebuilding `hub/dist` does not replace code already loaded by a stdio process. Restart it.
+
+## Top-level settings surface
+
+Module settings are editable in the dashboard. `bind`, `port`, and `authToken` are currently JSON/environment settings rather than a complete dashboard Settings panel. Changing a token from the page serving that token is non-trivial because the next request would immediately require the new credential; this UI remains backlog work.
+
+## Ephemeral invocation
+
+`adapter_invoke {ephemeral:true}` is for read-only operations that must not enter the job database. It is:
+
+- synchronous;
+- restricted to operations declared `read`;
+- restricted to `ephemeralModules` (default `['ollama']`);
+- non-persistent: no job, event, result, log, or artifact rows/files.
+
+Requests outside those constraints fail closed.
+
+## System filesystem fence
+
+Prefer `allowedRoots` for multiple project/work directories. It accepts an array in JSON or a semicolon/comma-delimited string from the dashboard. Legacy `allowedRoot` remains supported. Relative paths resolve under the first root.
+
+Keep `allowFullAccess` false unless the workflow genuinely requires the whole filesystem, and never combine full access with an untrusted caller.
 
 ## Safe defaults
 
-- Keep the hub bound to `127.0.0.1` unless you are deliberately running a remote
-  node; then bind to the mesh address, never `0.0.0.0`.
-- Start system, messaging, and publishing modules at **approve**.
-- Restrict the system module's `allowedRoot`.
-- Use provider-side budgets and long-lived tokens only where necessary.
+- Keep `bind` at `127.0.0.1` unless deliberately deploying a remote node.
+- For a remote node, bind the private mesh address, not `0.0.0.0`.
+- Use one strong token per node and rotate any token exposed in logs or chat.
+- Keep Windows/system, publishing, commerce, Gmail, relay, and remote-node at `approve` initially.
+- Restrict `system.allowedRoots`.
+- Use least-privilege provider tokens and provider-side budgets.
 - Disable unused modules and expired credentials.
+- Do not run elevated and unelevated hubs against the same data/repository tree.
