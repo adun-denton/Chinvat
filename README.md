@@ -2,126 +2,133 @@
   <a href="docs/fa/README.md"><b>فارسی</b></a> &nbsp;·&nbsp; <b>English</b>
 </p>
 
-<p align="center"><sub>راهنمای کامل به زبان فارسی: <a href="docs/fa/README.md">از این‌جا شروع کنید ←</a></sub></p>
+<p align="center"><sub>راهنمای فارسی: <a href="docs/fa/README.md">از این‌جا شروع کنید ←</a></sub></p>
 
 # Chinvat
 
 **The bridge between your agents and your world.**
 
-Chinvat is a local **MCP labor hub** for Windows. It gives any MCP-capable coordinator (Claude Code / Claude Desktop, Codex, Cursor, Hermes, …) a single server through which it can delegate work to local models, remote specialist models, Windows itself, and your communication and publishing channels — with a persistent job queue, artifacts, and a policy layer that decides what crosses the bridge.
+Chinvat is a governed MCP labor hub for Windows. Any MCP-capable coordinator—Codex, Claude, Cursor, Hermes, or another client—can delegate work through one interface to models, the machine, local creative applications, publishing/commerce systems, communication channels, and complete Chinvat hubs on other computers.
 
-```
-Coordinator agent ──MCP──▶ Chinvat Hub ──▶ ollama · openrouter · openai-compatible
-        (Claude, Codex…)      │             Windows/System · Telegram · WordPress · WooCommerce
-                              │             WhatsApp · Facebook · Instagram · LinkedIn · X
-                              ├─ SQLite job engine (parent/child, artifacts, recovery)
-                              ├─ Policy tiers (observe / approve / autonomous)
-                              └─ Web dashboard @ http://localhost:7777
+It is not a generic tool proxy. Work becomes durable jobs with lineage, artifacts, policy, approval, recovery, and an audit trail.
+
+```text
+Coordinator ── MCP ──▶ Chinvat Hub
+                        ├─ model workers: Ollama · OpenRouter · OpenAI-compatible
+                        ├─ machine/apps: System · Coolify · Blender · GIMP · Rhino · Orca
+                        ├─ publishing: WordPress · WooCommerce
+                        ├─ communication: Telegram · WhatsApp · social · Gmail
+                        ├─ governed relay: chat-relay
+                        ├─ federated hubs: remote-node
+                        ├─ SQLite jobs + approvals + artifacts
+                        └─ dashboard + REST + WebSocket @ 127.0.0.1:7777
 ```
 
 ## Why
 
-MCP servers are the critical joints of agentic pipelines — and the most frequent friction points. Existing aggregators proxy tools; Chinvat instead runs a **labor market**: jobs are submitted, routed to worker modules, persisted, supervised, approved when risky, and their results composed back into parent objectives.
+MCP aggregators multiplex tools. Chinvat manages labor: jobs are submitted, routed to explicit worker operations, persisted, supervised, approved when consequential, and composed into larger objectives by the coordinator.
 
-## Quickstart (Windows)
+Each remote machine can run a complete independent hub. Each hub keeps its own policy, approvals, modules, ledger, and artifacts; federation does not turn a remote workstation into an ungoverned shell.
 
-Requirements: [Node.js 20+](https://nodejs.org) (22 LTS recommended), Git.
+## Quickstart on Windows
+
+Requirements: Node.js 20+ (22 LTS recommended) and Git.
 
 ```powershell
 git clone https://github.com/adun-denton/Chinvat.git
 cd Chinvat
 npm install
 npm run build
-npm start            # hub + dashboard on http://localhost:7777
+npm start
 ```
 
-Or let a desktop agent do it — see [AGENTS.md](AGENTS.md).
+Open `http://localhost:7777`. For an agent-led deployment, see [AGENTS.md](AGENTS.md).
 
 ## Repository layout
 
 ```text
-hub/src/                    hub, jobs, policy, MCP, API, and built-in adapters
+hub/src/                    hub core, auth, jobs, policy, MCP/REST/WS, adapters
+hub/src/lib/                shared transport, relay, packet, validation layers
 dashboard/src/              local React dashboard
-clients/                    coordinator configuration and Codex plugin
+clients/                    coordinator configuration and Codex pack
+modules/                    external drop-in adapters loaded at boot
+app-bridges/                app-side bridge setup/assets
 wp-plugin/chinvat-bridge/   optional WordPress Abilities companion plugin
-app-bridges/                pinned or externally installed local-app bridge assets
-docs/                       guides, architecture, modules, and roadmap
+docs/README.md              documentation hierarchy and authority map
+docs/spike/                 measured experiments and rejected paths
 ```
 
 ## Connect a coordinator
 
-Start the hub, open the **Connect** tab, pick your client, and either copy the configuration or let Chinvat install it for you. Auto-install previews the exact change, backs up any existing file, writes only the `chinvat` entry (never touching your other servers), then re-tests the endpoint and reports success. Streamable HTTP is the default transport; stdio is the fallback.
+Start the hub and open **Connect**. Chinvat can preview and safely merge its own entry into supported client configuration, back up the existing file, re-test the endpoint, and report the required restart/reload.
 
-| Client | HTTP | stdio | Scope | Auto-install | After connecting |
-|---|---|---|---|---|---|
-| Codex | ✓ default | ✓ | project + global | ✓ global | restart Codex |
-| Claude Desktop | via `mcp-remote` | ✓ default | global | ✓ global | full restart |
-| Claude Code | ✓ default | ✓ | project + global | ✓ + one-command | `/mcp` |
-| Hermes | ✓ default | ✓ | global | ✓ global | `/reload-mcp` (no restart) |
-| Cursor | ✓ default | ✓ | project + global | ✓ global | auto / toggle |
-| Generic MCP client | ✓ default | ✓ | — | copy-only | reload |
+| Client | Default | Notes |
+|---|---|---|
+| Codex | Streamable HTTP | project/global TOML; restart |
+| Claude Code | Streamable HTTP | project/global; `/mcp` |
+| Claude Desktop | stdio | native HTTP unavailable; full restart |
+| Cursor | Streamable HTTP | project/global JSON |
+| Hermes | Streamable HTTP | YAML; `/reload-mcp` |
+| Generic MCP | Streamable HTTP or stdio | copy-only |
 
-The endpoint is always `http://127.0.0.1:7777/mcp`. Manual snippets and the Codex plugin live in [`clients/`](clients/); Claude Desktop has no native HTTP transport, so Chinvat uses stdio there by default.
+Local endpoint: `http://127.0.0.1:7777/mcp`.
+
+A hub deliberately bound outside loopback requires a bearer token. Generated Connect snippets include the token for authenticated hubs. See [Configuration](docs/CONFIGURATION.md) and [Remote Nodes](docs/REMOTE-NODES.md).
 
 ## MCP surface
 
 | Tool | Purpose |
 |---|---|
-| `workers_list` | Discover modules, health, and policy tier |
-| `capabilities_describe` | Operations + JSON-schema args + risk level for one module |
-| `tasks_submit` | Queue a job (sync or async, optional `parent_id`) |
-| `tasks_status` / `tasks_result` / `tasks_cancel` | Track, fetch, stop |
-| `adapter_invoke` | Direct synchronous call; optional non-persistent `ephemeral:true` for read-only ops |
+| `workers_list` | Discover modules, health, tiers, and operations |
+| `capabilities_describe` | Read schemas and risk for one module |
+| `tasks_submit` | Submit persistent sync/async work with optional lineage |
+| `tasks_status` / `tasks_result` / `tasks_cancel` | Track, retrieve, and stop jobs |
+| `adapter_invoke` | Direct synchronous call; optionally ephemeral for allowlisted read operations |
 
-## Modules
+## Built-in modules
 
-| Module | Status | Needs |
-|---|---|---|
-| `ollama` | full | local Ollama at `127.0.0.1:11434` |
-| `openrouter` | full | API key |
-| `openai-compatible` | full | `Base URL` + the provider’s own `API key` |
-| `telegram` | full (incl. approval buttons) | bot token |
-| `wordpress` | full | site URL + application password |
-| `woocommerce` | full (144 fixed operations) | WooCommerce + site URL + application password |
-| `system` (Windows/shell/files) | full | policy tier ≥ approve for writes |
-| `coolify` | v0.1.0 | Coolify URL + scoped API token |
-| `blender` | v0.1.0 | Blender + enabled bridge add-on; one Connect click |
-| `orca` | v0.1.0 | CLI-capable Orca-lineage slicer + configured paths |
-| `gimp` | v0.1.0 | GIMP 3 + user-installed GPL plug-in; per-session start |
-| `rhino` | v0.1.0 | Rhino 8 + installed bridge script |
-| `whatsapp` (Cloud API) | token-config | Meta app token + phone number ID |
-| `facebook` (Pages) | token-config | page access token |
-| `instagram` (Graph) | token-config | IG user ID + token |
-| `linkedin` | token-config | OAuth token (`w_member_social`) |
-| `x` (Twitter) | token-config | OAuth 2.0 user token (`tweet.write`) |
+Chinvat ships 20 built-ins. The complete operation and setup reference is [Modules](docs/MODULES.md).
 
-`openai-compatible` is one reusable worker for NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure, and any other OpenAI-compatible endpoint — point it at a `Base URL` with the provider’s `API key`. Provider-named instances are roadmap work, not shipped modules. New modules are folders implementing the [adapter contract](docs/ARCHITECTURE.md#adapter-contract) — drop them in `hub/src/adapters/` (built-in) or `modules/` (external, loaded at boot).
+| Family | Modules |
+|---|---|
+| Models | `ollama`, `openrouter`, `openai-compatible` |
+| Machine/infrastructure | `system`, `coolify`, `remote-node` |
+| Local applications | `blender`, `orca`, `gimp`, `rhino` |
+| Publishing/commerce | `wordpress`, `woocommerce` |
+| Messaging/social | `telegram`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x` |
+| Governed relay | `gmail`, `chat-relay` |
 
-### Local-app bridges
+External modules can be placed under `modules/<name>/` and are loaded at boot.
 
-`blender`, `orca`, and `gimp` add local desktop-app control. Blender and GIMP use loopback sockets; Orca spawns a pinned slicer CLI and deliberately has no printer-control surface. Read-tier PNG snapshots are artifacts for a vision-capable caller to inspect and iterate on—Chinvat does not run vision itself. See the [local-app bridge design](docs/DESIGN-local-app-bridges.md), [Blender app-side setup](app-bridges/blender/README.md), and [GIMP setup](app-bridges/gimp/SETUP.md).
+## Major subsystem guides
 
-### WordPress companion plugin
-
-The built-in `wordpress` module uses core WordPress REST for posts, pages, media, taxonomy, and block-theme navigation. Adapter 0.4.0 can read and patch existing pages; list/read/update/delete media metadata; list/read/update `wp_navigation` block markup; pass `featured_media` through post/page drafts and updates; and upload either a bounded public URL or caller-supplied base64 bytes (for example, bytes downloaded through an authenticated Google Drive connector). Navigation updates and permanent media deletion are dangerous operations. URL uploads reject private-network destinations across redirects, unsupported MIME types, and payloads above 20 MiB. The optional [Chinvat WP Bridge](wp-plugin/chinvat-bridge/README.md) 0.4.3 adds 18 WordPress Abilities for guarded option access, active-theme file I/O, DB-layer Global Styles and Site Editor template overrides, per-post RankMath fields, installed-plugin activation/deactivation, and block-aware child-theme scaffolding. PHP theme writes use an in-process Zend syntax gate when `proc_open` is disabled and remain fail-closed if no verified backend exists. Its authenticated handshake is `GET /wp-json/chinvat-bridge/v1/info`.
-
-The TypeScript `wordpress` adapter 0.4.0 exposes 19 fixed `bridge_*` operations: one handshake plus the 18 Bridge abilities. The new `bridge_db_state`, `bridge_global_styles_*`, and `bridge_template_*` operations run through normal Chinvat jobs and policy; DB writes require **Developer Mode** plus **DB Layer (Global Styles & Templates)**. This is a static operation list, not discovery of arbitrary abilities. Both `bridge_theme_write` and the auto-activating `bridge_theme_scaffold_child` are `dangerous`. Use an admin-only application password, keep MCP away from untrusted callers, and never give a write-enabled agent untrusted content. The safeguards reduce risk; they do not make arbitrary code execution safe.
+- **Remote nodes:** federated hubs over a private mesh, bearer auth, transport restrictions, and two-layer policy. [Guide](docs/REMOTE-NODES.md)
+- **Mail Relay:** compile a bounded repository packet, import an inert response, validate in a disposable worktree, and gate live apply. [Design](docs/DESIGN-mail-relay.md)
+- **Local applications:** socket and CLI bridge patterns for Blender, GIMP, Rhino, and Orca. [Design](docs/DESIGN-local-app-bridges.md)
+- **Browser direction:** platform adapters and governed data plane on Playwright; no custom driver protocol without new evidence. [WP-00 report](docs/spike/WP-00-REPORT.md)
+- **WordPress:** core REST in the hub plus the optional guarded WP Bridge. [Plugin guide](wp-plugin/chinvat-bridge/README.md)
 
 ## Policy: what crosses the bridge
 
-Every operation declares a risk (`read` / `act` / `dangerous`); every module has a tier:
+Every operation declares `read`, `act`, or `dangerous`. Every module has a tier:
 
-- **observe** — `read` operations run; `act`/`dangerous` operations are rejected
-- **approve** — `read` operations run; `act`/`dangerous` operations pause as `waiting_approval`; release with one click in the dashboard or from Telegram
-- **autonomous** — everything runs (dangerous ops still logged)
+- **observe** — read runs; act/dangerous reject.
+- **approve** — read runs; act/dangerous wait for human approval.
+- **autonomous** — declared operations run without pausing and remain logged.
 
-Model inference is `read`, so it runs at every tier without approval.
+Risk labels are part of the adapter contract. A proxy or raw escape hatch may not silently downgrade the risk of the operation it reaches.
 
-## Docs
+## Authentication and trust
 
-[Getting started](docs/GETTING-STARTED.md) · [Using models](docs/MODELS.md) · [Configuration](docs/CONFIGURATION.md) · [Modules guide](docs/MODULES.md) · [Remote nodes](docs/REMOTE-NODES.md) · [راهنمای فارسی](docs/fa/README.md)
+The default loopback hub is zero-config. A non-loopback bind without a token fails before opening a socket. `/mcp`, `/api`, and `/ws` share the same authorization decision.
 
-[Development plan](docs/DEVELOPMENT-PLAN.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Local-app bridge design](docs/DESIGN-local-app-bridges.md) · [Agent handover](AGENTS.md)
+Bearer auth identifies access to one hub; it is not yet per-user authorization. Remote privileged invocation is remote code execution by design and remains subject to both the coordinator hub's gate and the remote hub's own policy.
+
+## Documentation
+
+Start with the [documentation hierarchy](docs/README.md).
+
+[Getting started](docs/GETTING-STARTED.md) · [Configuration](docs/CONFIGURATION.md) · [Models](docs/MODELS.md) · [Modules](docs/MODULES.md) · [Remote nodes](docs/REMOTE-NODES.md) · [Architecture](docs/ARCHITECTURE.md) · [Development plan](docs/DEVELOPMENT-PLAN.md) · [Roadmap](docs/ROADMAP.md) · [راهنمای فارسی](docs/fa/README.md)
 
 ## License
 

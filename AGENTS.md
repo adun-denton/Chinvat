@@ -1,62 +1,108 @@
-# AGENTS.md — handover for agentic coders & desktop agents
+# AGENTS.md — handover for agentic coders and desktop agents
 
-Chinvat is designed to be **deployed and controlled by desktop agents** (Claude Cowork/Code, Codex, …). Everything you need is below; no human steps are required beyond secrets the user must supply.
+Chinvat is designed to be deployed and maintained by coding/desktop agents. Ordinary repository work should be completed end to end: inspect, edit, verify, commit, and push. Do not introduce a branch/PR/merge workflow for routine changes unless repository protection, parallel work, or explicit review requires it.
 
-## Deploy (Windows)
+## Deploy on Windows
 
 ```powershell
-git clone https://github.com/adun-denton/Chinvat.git; cd Chinvat
-npm install          # workspaces: hub, dashboard (hub deps incl. smol-toml, yaml)
-npm run build        # tsc (hub) + tsc --noEmit && vite build (dashboard)
-npm start            # boots hub: dashboard+API+MCP-HTTP on 127.0.0.1:7777
+git clone https://github.com/adun-denton/Chinvat.git
+cd Chinvat
+npm install
+npm run build
+npm start
 ```
 
-- Autostart (optional): `scripts/install.ps1 -Autostart` registers a Task Scheduler logon task.
-- Dev loop: `npm run dev -w hub` (tsx watch) and `npm run dev -w dashboard` (vite, proxies `/api` to 7777).
+- Requirements: Node.js 20+; Node 22 LTS recommended.
+- Dashboard, REST, WebSocket events, and MCP HTTP normally share `127.0.0.1:7777`.
+- Optional autostart: `scripts/install.ps1 -Autostart`.
+- Dev loop: `npm run dev -w hub` and `npm run dev -w dashboard`.
 
-## Operate
+## Process and transport model
 
-Two equivalent control planes:
+A process owns one `Hub` singleton: config, SQLite DB, registry, job engine, policy, artifacts, REST, WebSocket events, and MCP bindings.
 
-1. **MCP** — stdio: `node hub/dist/index.js --stdio` · HTTP: `POST http://127.0.0.1:7777/mcp`
-   Tools: `workers_list`, `capabilities_describe`, `tasks_submit`, `tasks_status`, `tasks_result`, `tasks_cancel`, `adapter_invoke`.
-2. **REST** (what the dashboard uses) — base `http://127.0.0.1:7777/api`:
-   `GET /status`, `GET /modules`, `PUT /modules/:name/config`, `PUT /modules/:name/tier`, `PUT /modules/:name/enabled`,
-   `GET /jobs?status=…`, `GET /jobs/:id`, `POST /jobs`, `POST /jobs/:id/cancel`,
-   `GET /approvals`, `POST /approvals/:id/approve|deny`,
-   `GET /connect/clients`, `POST /connect/test`, `POST /connect/preview`, `POST /connect/apply`, WS events at `/ws`.
-
-Typical delegation: `tasks_submit {module:"ollama", operation:"chat", args:{model:"qwen3", messages:[…]}, mode:"sync"}`.
-
-## Configuration
-
-- File: `data/chinvat.config.json` (created on first boot; `data/` is git-ignored).
-- Env overrides: `CHINVAT_PORT`, `CHINVAT_DATA_DIR`.
-- Module secrets (bot tokens, API keys) go **only** in that config via dashboard or `PUT /modules/:name/config`. **Never commit secrets or the `data/` directory.**
-
-## Repo map
-
-```
-hub/src/            core: index, config, db, jobs, policy, registry, mcp, api, connect, events, artifacts
-hub/src/adapters/   built-in modules (one file each): ollama openrouter system telegram wordpress
-                    whatsapp facebook instagram linkedin x
-dashboard/src/      React UI (vite); views/ incl. Connect
-clients/            per-client config snippets + bundled Codex plugin
-docs/               plan, architecture, modules, roadmap
-scripts/            install.ps1, start.cmd
-modules/            external drop-in adapters (git-ignored contents)
+```text
+normal run: node hub/dist/index.js             HTTP + dashboard
+stdio client: node hub/dist/index.js --stdio   stdio only unless --http/--port is explicit
 ```
 
-## Conventions
+HTTP surfaces:
 
-- TypeScript strict; small files; no framework beyond Express + ws in the hub.
-- Every adapter implements the contract in `hub/src/types.ts` and declares risk per operation — the policy engine depends on it.
-- Verify before committing: `npm run build && npm run smoke` (boots hub on a temp dir, exercises MCP over stdio, submits a job through policy). The smoke test asserts the built-in module count — bump it when you add a module.
-- Commit style: imperative subject, body lists user-visible changes.
+- MCP: `POST /mcp`
+- REST: `/api/*`
+- WebSocket events: `/ws`
+- Dashboard: `/`
+- Auth probe: `GET /auth/required`
+
+MCP tools: `workers_list`, `capabilities_describe`, `tasks_submit`, `tasks_status`, `tasks_result`, `tasks_cancel`, `adapter_invoke`.
+
+## Authentication and remote bind
+
+- Default `bind` is `127.0.0.1`; an empty token is allowed only on loopback.
+- A non-loopback bind without `authToken` is a startup error.
+- Tokens must be at least 24 characters.
+- `/mcp`, `/api`, and `/ws` share the same authorization decision.
+- HTTP clients use `Authorization: Bearer <token>`; browser WebSockets may use `?token=`.
+- Bind a remote node to its private mesh address, not `0.0.0.0`; see `docs/REMOTE-NODES.md`.
+
+Environment overrides: `CHINVAT_PORT`, `CHINVAT_DATA_DIR`, `CHINVAT_BIND`, `CHINVAT_AUTH_TOKEN`.
+
+`ConfigStore` loads once per process. Dashboard and client-spawned stdio hubs are separate processes and can share one config file while holding different in-memory snapshots. Restart every affected process after external config edits or a rebuild.
+
+## Built-in modules
+
+The 20 built-ins are:
+
+`ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `woocommerce`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`, `gmail`, `chat-relay`, `remote-node`.
+
+The registry also loads external `modules/<name>/index.mjs|index.js` modules at boot. New modules default to the `approve` tier.
+
+## Repository map
+
+```text
+hub/src/                  composition root, jobs, policy, auth, MCP, REST/WS
+hub/src/adapters/         built-in workers
+hub/src/lib/              shared relay, transport, packet, and validation layers
+dashboard/src/            React/Vite dashboard
+clients/                  coordinator configs and Codex pack
+modules/                  external drop-in adapters loaded at boot
+app-bridges/              app-side setup/assets for local integrations
+wp-plugin/                optional WordPress companion plugin
+docs/README.md            documentation hierarchy
+docs/DESIGN-*.md          subsystem designs
+docs/spike/               empirical or disposable research
+```
+
+## Verification
+
+For ordinary code changes:
+
+```powershell
+npm run build
+npm run smoke
+```
+
+Also run the nearest unit tests. The smoke test asserts the built-in module count; update it when the registry changes.
+
+Cross-platform caveats:
+
+- `better-sqlite3` and Rollup/Vite use platform-native bindings. A checkout with Windows dependencies cannot fully test/build under a Linux sandbox.
+- Hub TypeScript and dashboard type-checking can still be run where their dependencies permit.
+- Normalize only files you intentionally edit; do not commit a repository-wide CRLF rewrite.
+
+## Operational traps
+
+- Do not clone or move the repository through `C:\Windows\System32`; protected ACLs can leave SQLite unwritable. Clone directly into a user-owned directory.
+- Do not alternate elevated and unelevated hub runs against the same data directory.
+- A dashboard HTTP hub and a client-spawned stdio hub are distinct. Restarting one does not refresh the other.
+- Until TASK-CHINVAT-008c is fixed, an `EADDRINUSE` listen error is logged but may leave the process alive without a listener. Supervisors must check the socket/health endpoint, not only process existence.
+- Until TASK-CHINVAT-008a is fixed, use `mode:"async"` for remote operations that may wait for approval.
 
 ## Guardrails
 
-- Do not weaken policy defaults (new modules default to `approve`).
-- Do not bind to `0.0.0.0` — remote exposure is a roadmap item with its own auth design (docs/ROADMAP.md).
-- `/connect/apply` may only write the user's coordinator config files, merge-only, always with a backup — never overwrite wholesale.
-- Do not push `data/`, `dist/`, `node_modules/`, or lockfiles (repo is synced via API; deps are semver-pinned).
+- Every operation declares `read`, `act`, or `dangerous`; do not bypass policy in an adapter.
+- Do not expose raw-request or raw-shell escape hatches under a lower risk label.
+- Keep secrets in the git-ignored config only; never commit `data/`.
+- `/connect/apply` may merge only Chinvat's own coordinator entry and must back up the target first.
+- Local scripting operations and remote privileged invocation are code execution by design, not sandboxes.
+- Browser automation follows the WP-00 decision: build platform adapters and a governed data plane on Playwright; do not import the disposable spike or create a custom driver protocol without new evidence.

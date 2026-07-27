@@ -1,127 +1,204 @@
 # Architecture
 
-## Process model
+## 1. System model
 
-One Node process (`hub/dist/index.js`). Flags: `--stdio` (attach MCP stdio transport for the spawning client), `--port <n>` (default 7777), `--no-http`. The HTTP side serves: dashboard (static), REST `/api`, WebSocket `/ws`, MCP Streamable HTTP `/mcp`. All transports share one `Hub` singleton.
+Chinvat is a governed MCP labor hub. One hub process owns a module registry, durable jobs, policy decisions, approvals, artifacts, and several control surfaces. A coordinator plans and delegates; Chinvat executes and records.
 
-## Components
+A machine may run more than one process—for example, a normal HTTP/dashboard hub and a Claude Desktop-spawned stdio hub. Those processes do not share memory even when they read the same configuration file.
 
-```
-index.ts ─ boot: config → db → registry → jobs → policy → api/mcp
-config.ts     load/merge/save data/chinvat.config.json + env overrides
-db.ts         better-sqlite3 bootstrap + migrations (idempotent DDL)
-types.ts      ChinvatAdapter contract, Job, OperationSpec, risk/tier enums
-registry.ts   instantiate built-ins + load modules/*/ ; health cache
-policy.ts     decide(op.risk, module.tier) → run | approval | reject
-jobs.ts       queue, dispatch (per-module concurrency), lifecycle, recovery
-events.ts     tiny typed pub/sub → WS broadcast + adapter hooks
-artifacts.ts  save/list/read under data/artifacts/<jobId>/
-connect.ts    per-client config (JSON/TOML/YAML), safe merge + backup, host detection, endpoint self-test
-mcp.ts        McpServer with 7 tools; stdio + streamable-HTTP bindings
-api.ts        Express REST + ws upgrade + static dashboard
-smoke.ts      self-test used by `npm run smoke`
+```text
+coordinator ── MCP ──▶ Hub
+                       ├─ registry: 20 built-ins + external modules
+                       ├─ policy: risk × tier
+                       ├─ durable job engine + approvals + artifacts
+                       ├─ REST API + dashboard + WebSocket events
+                       └─ workers: models, system, apps, publishing, relay, remote hubs
 ```
 
-External deps beyond Express/ws/zod/better-sqlite3: `smol-toml` and `yaml` back the connect module's config merges (Codex is TOML, Hermes is YAML).
+## 2. Process and transport model
 
-## Adapter contract
+Entry point: `hub/dist/index.js`.
+
+Flags:
+
+- `--stdio`: attach MCP stdio.
+- `--http`: serve HTTP even when stdio is active.
+- `--port <n>`: override the HTTP port and imply explicit HTTP.
+- `--no-http`: disable HTTP.
+
+A normal run serves:
+
+- dashboard at `/`
+- REST under `/api`
+- WebSocket events at `/ws`
+- MCP Streamable HTTP at `/mcp`
+- unauthenticated auth requirement probe at `/auth/required`
+
+A stdio-spawned process does not bind port 7777 unless HTTP was explicitly requested. This prevents every desktop client from competing with the dashboard daemon for the same socket.
+
+## 3. Composition root
+
+```text
+index.ts       boot, flags, bind policy, transports, shutdown
+hub.ts         constructs the singleton and registers built-ins
+config.ts      JSON config + environment overrides
+                (loaded once per process)
+auth.ts        one authorization decision for HTTP, MCP, REST, and WS
+registry.ts    built-ins, external modules, health cache
+policy.ts      read|act|dangerous × observe|approve|autonomous
+jobs.ts        persistence, queues, concurrency, approvals, recovery
+mcp.ts         seven MCP tools and stdio/HTTP bindings
+api.ts         dashboard, REST, WebSocket upgrade, connect routes
+connect.ts     coordinator config generation, merge, backup, endpoint test
+artifacts.ts   bounded job artifacts under data/artifacts/
+events.ts      typed event bus feeding WS and adapter hooks
+```
+
+Major shared libraries include local-app socket transport, guarded target validation, Mail Relay packet/envelope/worktree layers, and WordPress/WooCommerce helpers.
+
+## 4. Adapter contract
+
+Each module implements `ChinvatAdapter`:
 
 ```ts
 interface ChinvatAdapter {
-  name: string; version: string; description: string;
-  configSchema: FieldSpec[];              // drives dashboard config forms
-  activation?: ActivationSpec;            // { kind, note, guide? } — rendered on the module card
-  capabilities(): OperationSpec[];        // { name, description, params, risk }
-  health(ctx): Promise<{ ok: boolean; detail?: string }>;
-  invoke(operation, args, ctx): Promise<InvokeResult>;  // { output?, artifacts? }
-  cancel?(jobId): Promise<void>;
-  onBoot?(ctx): void|Promise<void>;       // e.g. telegram polling loop
+  name: string;
+  version: string;
+  description: string;
+  configSchema: FieldSpec[];
+  activation?: ActivationSpec;
+  capabilities(): OperationSpec[];
+  health(ctx: AdapterContext): Promise<HealthStatus>;
+  invoke(operation: string, args: Record<string, unknown>, ctx: AdapterContext): Promise<InvokeResult>;
+  cancel?(jobId: string): Promise<void>;
+  onBoot?(ctx: AdapterBootContext): void | Promise<void>;
 }
 ```
 
-`ctx: AdapterContext` = `{ config, dataDir, saveArtifact(), log(), emit(), signal }`. Risk levels: `read` (no side effects), `act` (reversible-ish side effects), `dangerous` (shell, deletes, money, mass sends). Sixteen modules ship built-in (`ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`); more load from `modules/` at boot.
+Every operation declares a schema and a risk. The registry materializes default module settings, caches health briefly, and loads external modules from `modules/<name>/index.mjs|index.js` at boot.
 
-## Local-app bridges
+## 5. Built-in worker families
 
-The [local-app bridge design](DESIGN-local-app-bridges.md) defines the desktop-app family. `hub/src/lib/local-app-bridge.ts` is the shared transport for socket apps (Blender and GIMP): loopback TCP, one JSON request and one JSON response per connection, with a shared serial queue per `host:port` so only one command is in flight at an endpoint. It accepts both `result`/`message` and `results`/`error` response dialects, and its `raw` escape hatch sends a verbatim request object for protocols such as GIMP's `{ "cmds": [...] }`. It fails closed for non-loopback hosts, limits requests to 1 MiB and responses to 64 MiB, and applies per-operation timeouts plus `AbortSignal` cancellation.
+The current 20 built-ins are:
 
-Orca deliberately does **not** use this helper: it is a process-spawn worker for a pinned CLI executable. Its model files, outputs, and profiles are confined with realpath and prefix checks. Blender/GIMP scripting (`execute_python`) is local code execution by design, therefore `dangerous` and separately behind each module's default-off `python_enabled` toggle; approval is reachable only after that explicit opt-in. This is operational safety for an admin-only local bridge, not a boundary against untrusted callers.
+- Models: `ollama`, `openrouter`, `openai-compatible`
+- Machine/infrastructure: `system`, `coolify`, `remote-node`
+- Local apps: `blender`, `orca`, `gimp`, `rhino`
+- Publishing/commerce: `wordpress`, `woocommerce`
+- Messaging/social: `telegram`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`
+- Relay: `gmail`, `chat-relay`
 
-Every visual app exposes a read-tier PNG snapshot artifact. Chinvat does not run vision; a vision-capable MCP caller reads the artifact and iterates. The activation models are intentionally distinct:
+The complete operation reference belongs in `MODULES.md`; subsystem-specific mechanics belong in `DESIGN-*.md` or the relevant app/plugin setup guide.
 
-1. **No app running:** Orca, through its headless CLI.
-2. **App running + one Connect click:** Blender's enabled add-on.
-3. **App running + per-session menu action + subfolder install:** GIMP; see [GIMP setup](../app-bridges/gimp/SETUP.md).
-
-## WordPress integration paths
-
-WordPress has two complementary surfaces:
-
-1. **Core REST, shipped in the hub:** adapter 0.4.0 in `hub/src/adapters/wordpress.ts` calls `/wp-json/wp/v2` for posts, pages, media, taxonomy, and `wp_navigation`. Existing pages and navigation records have explicit editable-context reads and bounded updates; draft post/page writes accept `featured_media`. Media has list/read/metadata-update/permanent-delete primitives and accepts one bounded public URL or base64 bytes supplied by an authenticated upstream connector. URL fetching validates HTTP(S), every redirect target, resolved addresses, MIME, and a 20 MiB cap before forwarding bytes to WordPress. Navigation updates and permanent media deletion are `dangerous`; these operations remain inside Chinvat's normal jobs and policy engine.
-2. **WordPress Abilities, shipped in the companion plugin:** `wp-plugin/chinvat-bridge/` 0.4.3 registers 18 `chinvat-bridge/*` abilities. In addition to options, active-theme files, per-post RankMath metadata, plugin activation/deactivation, and child-theme scaffolding, eight `chinvat-db` abilities read/write/reset user Global Styles and Site Editor template/part overrides—the DB layer that wins at render time. The plugin provides authenticated `GET /wp-json/chinvat-bridge/v1/info`; schema `4` reports all 18 abilities, the write toggles, and PHP lint backend/runtime diagnostics.
-
-The TypeScript adapter version `0.4.0` ships 19 static `bridge_*` operations: `bridge_info`, the original ten ability mappings, and `bridge_db_state`, `bridge_global_styles_get`, `bridge_global_styles_update`, `bridge_global_styles_reset`, `bridge_template_list`, `bridge_template_get`, `bridge_template_update`, and `bridge_template_reset`. `bridge_info` calls the handshake; the other 18 map to known abilities using this contract:
+## 6. Job and policy lifecycle
 
 ```text
-read:                    GET    /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
-no-argument read:        GET    /wp-json/wp-abilities/v1/abilities/{name}/run?input=
-destructive annotation: DELETE /wp-json/wp-abilities/v1/abilities/{name}/run?input[key]=value
-other writes:            POST   /wp-json/wp-abilities/v1/abilities/{name}/run  {"input":{"key":"value"}}
+tasks_submit ──▶ persist job ──▶ policy.decide
+   ├─ reject     → failed(policy_rejected)
+   ├─ approval   → waiting_approval ── approve ──▶ queued
+   │                                  └─ deny ───▶ cancelled
+   └─ run        → queued ── dispatcher ──▶ running ──▶ succeeded|failed|cancelled
 ```
 
-The Abilities API requires an `input` object even for no-argument GET runs; a bare `input=` satisfies that route, whereas a JSON query string such as `{}` is not decoded into an object. In the deployed API version, destructive-annotated abilities require DELETE and ignore DELETE bodies, so their inputs travel only in nested query parameters. The Bridge therefore reserves destructive annotations for small-scalar operations (`plugins-toggle`, `theme-scaffold-child`, and the two DB resets); content-bearing writes are non-destructive annotations and use POST JSON. Query-borne booleans need REST boolean sanitization. These transport annotations do not change Chinvat policy risk.
+Risk levels:
 
-These operations preserve each ability's `read` / `act` / `dangerous` risk and therefore pass through normal Chinvat jobs/policy before invocation. The adapter uses application-password authentication. Its `health()` first authenticates against core REST, then probes the handshake best-effort and appends the Bridge version/write state when detected; Bridge absence never fails core WordPress health. The operation list is fixed in the adapter rather than dynamically generated from handshake results.
+- `read`: no intended external mutation.
+- `act`: bounded/reversible external or local mutation.
+- `dangerous`: shell/code execution, destructive operations, money, publication, or high-consequence changes.
 
-## WooCommerce integration
+Tiers:
 
-`hub/src/adapters/woocommerce.ts` is a separate built-in worker over `/wp-json/wc/v3`. Its 144-operation surface is generated from fixed resource descriptors plus explicit diagnostics, publication, configuration, reporting, and reference-data operations; callers cannot provide an arbitrary method or path. The worker has its own module identity, policy tier, configuration, and module-tagged job/audit records rather than inheriting `wordpress` settings.
+- `observe`: read runs; higher risks reject.
+- `approve`: read runs; higher risks wait for approval.
+- `autonomous`: all declared operations run and remain logged.
 
-Before adding the Basic Application Password header, the adapter validates scheme, embedded credentials, hostname resolution, and resolved addresses. HTTPS is required for public stores; an explicit development toggle is required for HTTP/private/loopback targets, while link-local and cloud-metadata targets are always refused. Redirects are not followed. Writes expose dry-run previews, bounded payloads, before-state capture, and scalar readback comparison. Permanent deletion, batch deletion, refund creation, and system tools have adapter-level double confirmation in addition to the normal policy tier.
+`mode:"sync"` waits for a terminal result up to the configured limit. `mode:"async"` returns a job id immediately. Parent/child lineage is stored through `parent_id`.
 
-The DB slice separates runtime state from file state. `db-state` reports the active stylesheet/template, user Global Styles post, and DB overrides with `has_theme_file`. Global Styles update deep-merges or replaces a theme.json-shaped config and writes the required user-theme markers; on hosts where `wp_update_post` fatals for `wp_global_styles`, 0.4.2 hard-deletes and reinserts the full post, losing revisions. Template get/list follow WordPress resolution (DB override first); update creates or updates the override; reset makes the backing theme file authoritative or reports that no file remains. DB reads require `edit_theme_options`; writes also require Developer Mode and `db_layer`. The shared insert helper temporarily removes KSES filters only when the actor lacks `unfiltered_html`; existing template overrides use WordPress's normal `wp_update_post` path.
+`adapter_invoke` is a direct synchronous path. `ephemeral:true` is allowed only for read-risk operations in `ephemeralModules`; it intentionally creates no job, event, log, result, or artifact persistence.
 
-Each stdio MCP client owns a spawned hub process. After rebuilding `hub/dist`, restart those `node ... --stdio` processes or the client so it loads the new adapter; restarting only the HTTP daemon does not refresh stdio clients.
+## 7. Authentication and bind policy
 
-`bridge_theme_scaffold_child` is `dangerous` and defaults to activation. It creates a fresh, block-aware child of `get_template()`—never a child of the active stylesheet—with `style.css`, minimal `theme.json`, a trusted plugin-authored `functions.php`, copied header/footer parts when present, and a `templates/` directory. The generated PHP enqueues `get_stylesheet_uri()` on `wp_enqueue_scripts`, because block themes do not automatically load the child stylesheet. It is static plugin code written through the scaffold's confined child writer, not agent input traveling through the `theme-write` lint path. It is an update-resistant target for `theme-write`, not a full clone. `theme-write` remains remote code execution by design: agent PHP is parsed in-process by the running Zend engine, with a resolved PHP CLI fallback, and the write fails closed if neither backend is available. Non-PHP writes are unaffected. Path confinement, atomic writes, PHP linting, backups, capability checks, Developer Mode, and per-capability toggles are layered mitigations rather than a security boundary.
+Loopback remains zero-config. Remote exposure is fail-closed:
 
-## Job lifecycle
+- `bind` defaults to `127.0.0.1`.
+- A non-loopback bind requires an `authToken` of at least 24 characters before any socket is opened.
+- `/mcp`, `/api`, and `/ws` use the same authorization procedure.
+- HTTP uses a bearer header. Browser WebSockets may carry `?token=` because the browser API cannot set an authorization header.
+- The dashboard stores the supplied token only in that browser's local storage and can forget it.
 
-```
-tasks_submit ──▶ policy.decide
-   ├─ reject   → job failed(policy_rejected)
-   ├─ approval → waiting_approval ──approve──▶ queued   (deny → cancelled)
-   └─ run      → queued ──dispatcher──▶ running ──▶ succeeded | failed
-mode:"sync" holds the MCP call until terminal state or timeout, then returns result inline;
-mode:"async" returns {job_id} immediately. Parent/child via parent_id; tree in dashboard.
-```
+The bearer token authenticates access to one hub. It is not multi-user authorization and does not assign per-user risk ceilings; that remains roadmap work.
 
-Events (`job_events`): every transition + adapter logs, streamed over `/ws` and into Telegram when configured.
+## 8. Federated hubs
 
-## Connecting coordinators
+`remote-node` makes another complete Chinvat hub appear as a worker. Federation does not merge state:
 
-`connect.ts` turns "add Chinvat to my agent" into a first-class flow. For each supported client (Codex, Claude Desktop, Claude Code, Hermes, Cursor, Generic) it knows the config format, file location, transports, scopes, and restart behavior. REST surface under `/api/connect`:
-
-```
-GET  /connect/clients   list clients with detection, resolved paths, ready-to-copy snippets, one-commands
-POST /connect/test      real MCP handshake against the hub's own /mcp, then workers_list
-POST /connect/preview   compute the merged config file without writing (diff + backup path)
-POST /connect/apply     back up any existing file (timestamped) then write the merged config
+```text
+coordinator hub ── remote-node/MCP ──▶ node hub
+local policy                              remote policy
+local proxy job                           remote job + approval + artifacts
 ```
 
-Merges are non-destructive: parse the existing file (JSON/TOML/YAML), set only the `chinvat` entry, serialize back. Auto-install targets user/global scope (well-defined absolute paths); project scope is copy/one-command so nothing is written into an unchosen folder. Claude Desktop has no native HTTP transport, so it defaults to stdio (HTTP offered via `mcp-remote`).
+Transport policy permits plain HTTP only to loopback, RFC1918, Tailscale/Headscale mesh ranges, and `*.ts.net`; public targets require HTTPS unless an explicit insecure override is set. Off-box nodes require tokens.
 
-## Data model (SQLite)
+Risk is not laundered. Normal remote invocation first resolves the remote operation risk and refuses `dangerous`; privileged invocation is itself `dangerous`, requires `confirm:"REMOTE_EXECUTE"`, and is still subject to the node's own tier.
 
+See `REMOTE-NODES.md` for deployment and current MVP limitations.
+
+## 9. Human-gated coding relay
+
+`chat-relay` compiles a repository state into a bounded provider-neutral packet, runs a secret/classification firewall, and binds responses to `TASK_ID`, `PACKET_SHA`, and `BASE_COMMIT`.
+
+```text
+compile → dispatch(mail|clipboard|file) → import inert reply
+        → validate in disposable worktree → apply to live branch behind danger gate
 ```
-jobs(id TEXT pk, parent_id, module, operation, args_json, status, mode,
+
+The relay owns lifecycle state but no mail transport. `gmail` is a separate carrier composed by the coordinator. Imported replies do not execute; validation runs only in a disposable worktree, and `relay_apply` is the sole live-branch mutation.
+
+See `DESIGN-mail-relay.md` and `app-bridges/gmail/SETUP.md`.
+
+## 10. Local-app bridges
+
+Blender, GIMP, and Rhino use loopback socket bridges with separate app-side activation. Orca uses a pinned CLI process and intentionally exposes no printer-control surface. Visual workers can return PNG artifacts for a vision-capable coordinator; Chinvat itself does not perform vision.
+
+Scripting operations are code execution by design and require both a module-specific opt-in and normal policy approval. See `DESIGN-local-app-bridges.md`.
+
+## 11. Browser-automation direction
+
+WP-00 measured that platform/entity adapters provide the durable advantage: stable identity, consequence-aware proposals, coverage accounting, compact records, and reconstructable audits. A generic positional DOM path silently selected the wrong entity after routine virtualized-grid movement, while adapter entity ids failed safely.
+
+The accepted direction is therefore:
+
+- direct Playwright foundation
+- platform adapters with declared identity/extraction schemas and known-unknowns
+- governed proposal/approval/verification/ledger layers
+- paired value and shape digests
+- explicit coverage accounting
+
+A custom browser driver protocol is not justified by the current evidence. The spike under `spike/wp-00/` is disposable and must not be imported into production packages.
+
+## 12. Configuration lifecycle
+
+`data/chinvat.config.json` is human-editable and git-ignored. The in-memory config is loaded once at process construction. Environment overrides are merged into that in-memory object; a later save serializes the whole object, so a one-off environment override can become persistent.
+
+Operational consequence: after editing config outside a process, restart the normal HTTP hub and every client-spawned stdio hub that must see the change.
+
+## 13. Data model
+
+```text
+jobs(id, parent_id, module, operation, args_json, status, mode,
      result_json, error, created_at, started_at, finished_at, source)
-job_events(id INTEGER pk, job_id, ts, kind, data_json)
-approvals(id TEXT pk, job_id, requested_at, decided_at, decision, decided_via)
+job_events(id, job_id, ts, kind, data_json)
+approvals(id, job_id, requested_at, decided_at, decision, decided_via)
 ```
 
-Config is a JSON file, not DB — human-editable, easy to back up: `{ port, modules: { [name]: { enabled, tier, config } } }`.
+Artifacts live under `data/artifacts/<jobId>/`. Relay lifecycle files live under `data/relay/<taskId>/`.
 
-## Security posture (v0.1)
+## 14. Known architectural limitations
 
-Binds 127.0.0.1 only. Dashboard/REST unauthenticated **on localhost by design**; `/mcp` same. The `/connect/apply` route writes to the user's own coordinator config files (their machine, their process) and always backs up first. Auth middleware hook exists (`api.ts`) so the v1.0 remote release adds token/OIDC without restructuring. Secrets never leave the machine except inside calls to the services they belong to.
+- Auth is one bearer token per hub, not per-user authorization.
+- Config does not hot-reload.
+- Remote job/approval listing is not yet exposed through `remote-node`.
+- Gated remote work should be submitted async until sync handoff preserves job ids.
+- An HTTP listen error such as `EADDRINUSE` is not yet guaranteed to terminate the process non-zero.
+- Fleet UI, objectives, scheduling, automatic routing, and hosted deployment remain separate slices.
