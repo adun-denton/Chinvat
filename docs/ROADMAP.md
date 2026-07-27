@@ -1,50 +1,127 @@
 # Roadmap
 
-## v0.2 — routing & reach
-- **WordPress bridge delivered:** v0.1.2 security hardening ✓; v0.2.0 Developer Mode/toggles ✓; v0.3.x block-aware child-theme scaffold/loader ✓; v0.4.0–0.4.2 DB-layer state, Global Styles, and template/part primitives ✓; v0.4.3 in-process PHP lint fallback and diagnostics ✓. The plugin exposes 18 Abilities plus the authenticated schema-4 handshake.
-- **WordPress adapter extension delivered ✓:** 19 static `bridge_*` operations (handshake + 18 abilities) use the verified GET / DELETE-query / POST-body Abilities contract through normal Chinvat jobs/policy.
-- **WordPress core REST editing delivered ✓:** adapter 0.4.0 adds `get_page`/`update_page`, block-navigation list/read/update, media list/read/metadata-update/permanent-delete, featured-media fields for post/page drafts and updates, authenticated-connector base64 media handoff, and bounded SSRF-aware public URL ingestion.
-- **WooCommerce worker delivered ✓:** separate `wc/v3` worker with 144 fixed operations, guarded/dry-run writes, before-state and readback verification, bounded batches, target validation, and adapter-level confirmation for irreversible operations.
-- **Next WordPress slice:** export/snapshot-on-approval—read verified DB overrides, write them into child-theme files, commit to the site's GitHub repository, then reset the DB overrides so files become authoritative.
-- **Later WordPress slices:** cache purge, named site targets, revisions, coherence operations; separately gated `file-write` and `wp-cli`; RankMath sitewide controls (redirections, 404 monitor, sitemap, modules); plugin install/update/delete.
-- `module:"auto"`: route by task type, cost, latency, context window, availability, historical success (metrics already captured per job in v0.1).
-- **Named openai-compatible instances** (`nvidia`, `groq`, `together`, `lmstudio`, `vllm`, …) once the registry supports multiple instances per provider — the provider layer is already a factory, so each is a one-line registration.
-- Browser-automation module.
-- Objectives: persistent parent goals that survive restarts and accumulate child results.
-- Scheduled + event triggers (cron-like, webhook-in).
-- Artifacts browser in dashboard; job re-run with edited args.
+This file separates shipped state from immediate defects and future direction. For current implementation details, use [Architecture](ARCHITECTURE.md) and [Modules](MODULES.md).
 
-## v0.3 — surfaces
-- WordPress editorial workflows beyond the v0.2 bridge slices: Gutenberg blocks, previews, and structured draft review.
-- Tauri desktop shell: tray icon, native notifications, same dashboard inside.
-- WhatsApp alternative driver (desktop/browser session) for personal accounts, clearly flagged for ToS risk.
-- Module marketplace format: installable module packages with signed manifests.
+## Shipped foundation
 
-## v1.0 — remote & multi-user
-- **Bearer auth + Remote Node Management delivered ✓:** `/mcp` and `/api` accept a hub `authToken`, and a non-loopback bind without one is a startup error rather than a warning. The `remote-node` module federates other hubs over a private mesh (Tailscale/Headscale), allowing plain http only to loopback/mesh/private hosts, and splitting `node_invoke` (refuses remote `dangerous` operations) from `node_invoke_privileged`. See [Remote Nodes](REMOTE-NODES.md).
-- Hosted deployment: VPS/cloud image + reverse-proxy/tunnel recipes; hub reachable over TLS.
-- AuthN/AuthZ: tokens ✓ → OIDC; **access levels per user mapped to modules/operations/risk ceilings** — the "user levels → tool calls" system (e.g. *editor* may `wordpress.create_post` as draft but never `system.run_powershell`).
-- Approval routing per level (whose Telegram gets the button).
-- Fleet view: one dashboard over several hubs (home PC, office PC, VPS) — `remote-node` supplies the transport; the dashboard surface is still open.
-- Audit export, retention policies.
+- MCP hub over stdio and Streamable HTTP with seven tools.
+- Durable SQLite jobs, parent/child lineage, events, artifacts, cancellation, recovery, and dashboard/Telegram approvals.
+- Risk (`read` / `act` / `dangerous`) × tier (`observe` / `approve` / `autonomous`) policy.
+- Dashboard, REST, WebSocket, and safe coordinator Connect flow.
+- Bearer authentication for `/mcp`, `/api`, and `/ws`; fail-closed non-loopback bind policy.
+- Read-only allowlisted `adapter_invoke {ephemeral:true}` with zero persistence.
+- External module loading from `modules/`.
 
-## Shipped
-- Sixteen modules incl. the reusable **openai-compatible** worker (NVIDIA NIM/Nemotron, Groq, Together, LM Studio, vLLM, Azure), **X (Twitter)**, LinkedIn, Instagram, Facebook, WhatsApp, GIMP, Orca, Blender, Rhino, WordPress, Telegram, OpenRouter, Ollama, System, and the **Coolify** infrastructure worker.
-- **Chinvat WP Bridge 0.4.3 + adapter 0.4.0:** 18 Abilities including runtime-authoritative DB state, Global Styles, and Site Editor template/part get/update/reset primitives; Developer Mode and per-surface toggles; in-process PHP syntax validation on `proc_open`-restricted hosts; authenticated schema-4 handshake. Hub invocation exposes 19 static `bridge_*` operations with policy-preserving risks and best-effort health detection.
-- First-class **Connect** flow: per-client config, safe auto-install, endpoint self-test; per-module **Test connection**.
+## Shipped workers — 20
 
-- **Local-app bridges:** Blender `0.1.0`, Orca `0.1.0`, GIMP `0.1.0`, and Rhino `0.1.0` (connection slice: document/object reads, viewport snapshot, gated `execute_rhinoscript`; framed loopback TCP to the `jingcheng-chen/rhinomcp` plugin), plus the shared `local-app-bridge` transport. All were live-validated. See [the design](DESIGN-local-app-bridges.md), [GIMP setup](../app-bridges/gimp/SETUP.md), and [Rhino setup](../app-bridges/rhino/SETUP.md).
-- **Dashboard Modules view cleanup:** operation chips collapse past 8 with a `+N more` toggle; card actions pinned so long op lists no longer crowd the layout.
+### Models
+
+- `ollama`
+- `openrouter`, including pinned live-ZDR `private_chat`
+- `openai-compatible`
+
+### Machine, infrastructure, and federation
+
+- `system`, including multi-root fencing and repaired Windows spawn environments
+- `coolify`
+- `remote-node`
+
+### Publishing and commerce
+
+- `wordpress` core REST adapter `0.4.0`
+- Chinvat WP Bridge `0.4.3`, with 18 Abilities and schema-4 handshake
+- `woocommerce`, with 144 fixed guarded operations
+
+### Local applications
+
+- `blender`
+- `orca`
+- `gimp`
+- `rhino`
+
+### Messaging and social
+
+- `telegram`
+- `whatsapp`
+- `facebook`
+- `instagram`
+- `linkedin`
+- `x`
+- `gmail`
+
+### Governed relay
+
+- `chat-relay`: repository packet, classification/secret firewall, verified import, disposable-worktree validation, guarded live apply
+
+## Immediate reliability work
+
+### Remote Node Management
+
+1. **Async fallback for gated remote operations.** Automatically switch to async when remote declared risk is not `read`, so approval waits cannot consume the client timeout and hide the remote job id.
+2. **Remote inventory.** Add `node_jobs_list` and `node_approvals_list` so work remains discoverable after coordinator interruption.
+3. **Exit on HTTP listen failure.** `EADDRINUSE` and other listener errors must terminate non-zero so supervisors detect failure.
+4. **Top-level Settings UI.** Add safe editing for `bind`, `port`, and `authToken`, including token-change handoff behavior.
+5. **Config reload strategy.** Decide between explicit reload/restart UX and a safe watched ConfigStore; do not leave multiple hub processes silently divergent.
+
+### Remote GPU/media node
+
+- Verify Ollama service/model inventory on the deployed GPU node.
+- Record driver, VRAM, and runtime compatibility through `nvidia-smi`.
+- Add a ComfyUI worker, most likely as an HTTP app bridge that respects ComfyUI’s own queue rather than wrapping it as shell commands.
+- Define artifact transfer and bounded workflow submission for remote media jobs.
+
+## Browser automation direction
+
+The WP-00 spike supports **proceed, reduced**:
+
+- build platform adapters over Playwright;
+- use stable platform entity ids, never positional DOM paths for consequential actions;
+- bind approvals to exact proposal fields and both value/shape digests;
+- make coverage/reconciliation a blocking criterion;
+- use deterministic verification before model-based audit;
+- keep a tamper-evident ledger.
+
+Do not build a custom general browser-driver protocol yet. Complete Track A on headed Windows before locking the connection model. Spike code remains disposable.
+
+## WordPress next slices
+
+- Export/snapshot-on-approval: read verified DB overrides, write child-theme files, commit to the site repository, then reset DB overrides so files become authoritative.
+- Cache purge and post-write coherence operations.
+- Named site targets once the registry supports multiple instances.
+- Revisions and safer rollback surfaces.
+- Separately gated file-write and WP-CLI lanes.
+- RankMath sitewide controls and complete plugin install/update/delete.
+
+## Routing and durable objectives
+
+- `module:"auto"` using task type, capability, availability, cost, latency, context, and historical success.
+- Named OpenAI-compatible instances (`nvidia`, `groq`, `together`, `lmstudio`, `vllm`, …).
+- Persistent objectives that accumulate child work across restarts.
+- Scheduled/event triggers.
+- Artifact browser and rerun-with-edited-args UI.
+
+## Multi-user and hosted deployment
+
+- Hosted recipes over TLS through a reverse proxy or private tunnel.
+- OIDC after bearer tokens.
+- User roles mapped to module/operation/risk ceilings.
+- Approval routing by role and ownership.
+- Fleet dashboard over several federated hubs.
+- Audit export and retention policies.
 
 ## Local-app backlog
-- Orca: `analyze_gcode`; `profile_clone` / bounds-checked `profile_patch`. The CLI already emits a bare `plate_N.gcode` beside the 3MF.
-- GIMP: structured edit operations.
-- Rhino: structured modeling ops and Grasshopper (connection slice shipped as `0.1.0`); re-evaluate official `mcneel/RhinoMCP` backend once it ships releases.
-- ~~Dashboard: make newly loaded/never-enabled modules conspicuous; show each module's activation kind and link its setup guide instead of a generic health error.~~ Done: disabled modules get a gold dashed card + gold Enable; adapters may declare an `activation` spec (kind/note/guide) rendered on the card, with the note shown in place of the generic health error.
 
-**Known Orca limitation:** stock OrcaSlicer for Windows is not headless-capable. Its GUI-subsystem-only installer has no `orca-slicer-console.exe` and throws a C++ exception during early initialization before logging. Use a CLI-capable Orca-lineage build through `exe_path`; the adapter is fork-agnostic and was validated against Anycubic Slicer Next.
+- Orca: `analyze_gcode`, profile clone, bounded profile patch.
+- GIMP: structured edit operations beyond arbitrary Python.
+- Rhino: structured modeling and Grasshopper operations; re-evaluate official McNeel transport when release maturity improves.
+- ComfyUI: HTTP/queue adapter and artifact flow.
+
+Known Orca limitation: stock OrcaSlicer on Windows is not headless-capable. Continue using a CLI-capable Orca-lineage executable through the adapter.
 
 ## Standing chores
-- Track MCP spec releases (2026-07-28 RC → final) and SDK upgrades.
-- Keep the Connect matrix current as clients change their config schemas.
-- Add modules by demand; keep each a single reviewable file where possible.
+
+- Track MCP SDK/spec changes and update transports deliberately.
+- Keep coordinator configuration schemas current.
+- Keep module counts and built-in lists generated or test-checked where possible.
+- Treat documentation consistency as part of definition of done for every module/auth/transport change.
+- Keep specialist design documents linked from the documentation index.
