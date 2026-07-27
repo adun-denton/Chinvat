@@ -1,55 +1,117 @@
 # Connecting coordinators to Chinvat
 
-The easiest path is the dashboard: start the hub (`npm start`), open **Connect** at `http://localhost:7777`, pick your client, and copy the config or use **Install automatically**. Auto-install previews the exact merged file, backs up anything it finds, writes only the `chinvat` entry, and re-tests the endpoint. This folder holds the manual equivalents.
+The safest path is the dashboard: start the hub, open **Connect**, choose the client, preview the generated configuration, and use **Install automatically** where supported. Chinvat backs up the target and writes only its own `chinvat` entry.
 
-The hub speaks MCP two ways at once, backed by the same jobs, policy, and approvals:
+The hub supports:
 
-- **Streamable HTTP** (default) — `http://127.0.0.1:7777/mcp`
-- **stdio** (fallback) — the client spawns `node <REPO>/hub/dist/index.js --stdio`
+- **Streamable HTTP** — normally `http://127.0.0.1:7777/mcp`
+- **stdio** — the client spawns `node <REPO>/hub/dist/index.js --stdio`
 
-Build the hub first: `npm install && npm run build`.
+Build first:
 
-## Per-client config (each format is different — don't assume `.mcp.json`)
+```powershell
+npm install
+npm run build
+```
 
-**Codex** — TOML at `.codex/config.toml` (project) or `~/.codex/config.toml` (global):
+## Local untokened examples
+
+These manual examples are for the default loopback hub with no `authToken`.
+
+### Codex
+
+Project `.codex/config.toml` or global `~/.codex/config.toml`:
+
 ```toml
 [mcp_servers.chinvat]
 url = "http://127.0.0.1:7777/mcp"
 ```
-See [`codex/config.toml`](codex/config.toml). Restart Codex after.
 
-**Claude Code** — JSON at `.mcp.json` (project) or `~/.claude.json` (user); or one command:
-```
+See [`codex/config.toml`](codex/config.toml). Restart Codex.
+
+### Claude Code
+
+Project `.mcp.json`, user config, or CLI:
+
+```text
 claude mcp add --transport http chinvat http://127.0.0.1:7777/mcp
 ```
+
 ```json
-{ "mcpServers": { "chinvat": { "type": "http", "url": "http://127.0.0.1:7777/mcp" } } }
+{
+  "mcpServers": {
+    "chinvat": {
+      "type": "http",
+      "url": "http://127.0.0.1:7777/mcp"
+    }
+  }
+}
 ```
+
 Run `/mcp` to connect.
 
-**Cursor** — JSON at `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
+### Cursor
+
+Project `.cursor/mcp.json` or global `~/.cursor/mcp.json`:
+
 ```json
-{ "mcpServers": { "chinvat": { "url": "http://127.0.0.1:7777/mcp" } } }
+{
+  "mcpServers": {
+    "chinvat": {
+      "url": "http://127.0.0.1:7777/mcp"
+    }
+  }
+}
 ```
 
-**Hermes** — YAML at `~/.hermes/config.yaml`; then `/reload-mcp` (no restart):
+### Hermes
+
+`~/.hermes/config.yaml`:
+
 ```yaml
 mcp_servers:
   chinvat:
     url: http://127.0.0.1:7777/mcp
 ```
 
-**Claude Desktop** — JSON at `%APPDATA%\Claude\claude_desktop_config.json`. No native HTTP, so use stdio (replace `<REPO>`), then fully restart the app:
-```json
-{ "mcpServers": { "chinvat": { "command": "node", "args": ["<REPO>/hub/dist/index.js", "--stdio"] } } }
-```
-HTTP alternative: `{ "command": "npx", "args": ["-y", "mcp-remote", "http://127.0.0.1:7777/mcp"] }`.
+Run `/reload-mcp`.
 
-**Any other MCP client** — point it at `http://127.0.0.1:7777/mcp` (Streamable HTTP), or spawn the stdio command above.
+### Claude Desktop
+
+`%APPDATA%\Claude\claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "chinvat": {
+      "command": "node",
+      "args": ["<REPO>/hub/dist/index.js", "--stdio"]
+    }
+  }
+}
+```
+
+Fully restart Claude Desktop. Its native MCP transport is stdio; an HTTP alternative is `mcp-remote`.
+
+### Other MCP clients
+
+Use Streamable HTTP at the local endpoint, or spawn the stdio command above.
+
+## Authenticated or remote hubs
+
+A hub with `authToken` requires `Authorization: Bearer <token>` on `/mcp`. Client configuration formats represent HTTP headers differently, and some stdio-to-HTTP bridges use their own syntax.
+
+Use the authenticated hub's **Connect** page to generate the exact snippet. Do not copy a token into a tracked project file or public issue. Prefer a private mesh address and follow [Remote Nodes](../docs/REMOTE-NODES.md).
+
+Bearer auth identifies access to one hub; it is not per-user authorization.
+
+## Process behavior
+
+A client-spawned stdio hub is a different process from the dashboard HTTP hub. Each process loads configuration once. Restart every affected process after a rebuild or external config edit.
 
 ## Codex plugin (optional)
 
-The simplest Codex setup is just the `config.toml` above — no plugin needed. If you do want the packaged plugin (which also ships the delegation skill), copy the whole `codex/` folder to `C:\Users\<you>\plugins\local-labor-hub` and edit paths; the skill is bundled inside so the folder is self-contained.
+The simplest Codex setup is the TOML entry above. The optional packaged plugin under `codex/` also includes the delegation skill; copy it to the local plugins directory and adjust paths.
 
 ## The seven tools
 
