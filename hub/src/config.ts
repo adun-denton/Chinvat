@@ -11,6 +11,12 @@ export interface ModuleSettings {
 export interface ChinvatConfig {
   port: number;
   bind: string;
+  /**
+   * Bearer token required on /mcp and /api. Empty is allowed only while `bind`
+   * is loopback; a non-loopback bind without a token is a startup error.
+   * See hub/src/auth.ts and docs/REMOTE-NODES.md.
+   */
+  authToken: string;
   concurrencyPerModule: number;
   syncWaitMsDefault: number;
   syncWaitMsMax: number;
@@ -35,6 +41,7 @@ const DEFAULT_TIERS: Record<string, Tier> = {
   'openai-compatible': 'autonomous',
   gmail: 'approve',
   'chat-relay': 'approve',
+  'remote-node': 'approve',
 };
 
 const DEFAULT_ENABLED = new Set(['ollama', 'openrouter', 'system', 'telegram', 'wordpress']);
@@ -75,7 +82,8 @@ export class ConfigStore {
     }
     const cfg: ChinvatConfig = {
       port: Number(process.env.CHINVAT_PORT ?? raw.port ?? 7777),
-      bind: raw.bind ?? '127.0.0.1',
+      bind: process.env.CHINVAT_BIND ?? raw.bind ?? '127.0.0.1',
+      authToken: String(process.env.CHINVAT_AUTH_TOKEN ?? raw.authToken ?? ''),
       concurrencyPerModule: raw.concurrencyPerModule ?? 2,
       syncWaitMsDefault: raw.syncWaitMsDefault ?? 120_000,
       syncWaitMsMax: raw.syncWaitMsMax ?? 600_000,

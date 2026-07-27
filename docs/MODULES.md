@@ -2,7 +2,7 @@
 
 Every module is configured on the dashboard's **Modules** page. Secrets are stored only in `data/chinvat.config.json` on your machine and are sent only to the service they belong to. Each module has a policy **tier** (observe / approve / autonomous) — see the [README](../README.md#policy-what-crosses-the-bridge). Every card has a **Test connection** button that re-runs the module's health check.
 
-The 19 built-ins are `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `woocommerce`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`, `gmail`, and `chat-relay`. The first-boot enabled set is `ollama`, `openrouter`, `system`, `telegram`, and `wordpress`; the remaining modules are disabled until configured.
+The 20 built-ins are `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `woocommerce`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`, `gmail`, `chat-relay`, and `remote-node`. The first-boot enabled set is `ollama`, `openrouter`, `system`, `telegram`, and `wordpress`; the remaining modules are disabled until configured.
 
 ## ollama — local models
 Install [Ollama](https://ollama.com) and pull a model (`ollama pull qwen3`). Fields: `Base URL` (default `http://127.0.0.1:11434`) and `Default model` (default `qwen3`). Operations: `chat`, `generate`, `embeddings`, `list_models`, `pull_model`. Default tier: autonomous; `pull_model` is `act`, while the other operations are `read`.
@@ -31,6 +31,16 @@ Use the shipped preset triplet for the selected printer/nozzle, clone it in late
 
 ## gimp — local 2D images
 Version `0.1.0` connects GIMP 3 to the user-installed `maorcc/gimp-mcp` plug-in on TCP `127.0.0.1:9877`. The plug-in is GPLv3 and **is not vendored** into this MIT repository; only Chinvat's MIT socket adapter is included. Fields: `host`, `port` (default `9877`), and `python_enabled` (default off). Operations: `gimp_info`, `image_metadata`, `snapshot` (PNG artifact; optional scaling), and `execute_python` (PyGObject lines, `dangerous`). Follow the two required manual steps in [GIMP setup](../app-bridges/gimp/SETUP.md): install it in its same-named subfolder, then for every GIMP session open an image and select **Tools → MCP → Start MCP Server**. As with Blender, Python execution requires the toggle and policy approval.
+
+## remote-node — other machines, as workers
+
+Version `0.1.0` federates other Chinvat hubs over MCP Streamable HTTP. Each remote machine runs its **own** full hub, keeping its own modules, policy tiers, approval queue and job ledger; this module is a client to them. Fields: `nodes` (a JSON array of `{name, url, token, note?}`, stored as a secret), `timeoutMs` (default `60000`), and `allowInsecureHttp` (default off). Disabled by default, at the **approve** tier.
+
+Operations: `nodes_list`, `node_health`, `node_workers`, `node_capabilities` (`read`); `node_invoke`, `node_job_cancel` (`act`); `node_job_status`, `node_job_result` (`read`); and `node_invoke_privileged` (`dangerous`).
+
+Transport is constrained. Plain `http` is accepted only to loopback, mesh addresses (Tailscale/Headscale `100.64.0.0/10`, `fd7a:115c:a1e0::/48`, `*.ts.net`) and RFC1918 private ranges — contexts where an encrypted overlay or a LAN already carries the link. A public host requires `https` unless `allowInsecureHttp` is set explicitly. Any node that is not loopback must carry a token. URLs may not embed credentials, and tokens are never returned by any operation.
+
+Proxying does not launder risk. `node_invoke` asks the node for the target operation's declared risk before submitting and refuses anything the node marks `dangerous`; those require `node_invoke_privileged`, which is `dangerous` locally and additionally requires `confirm:"REMOTE_EXECUTE"`. The remote hub's own tier still applies on top, so a remote `dangerous` operation can still stop at `waiting_approval` there. Setup and the security model are in [Remote Nodes](REMOTE-NODES.md).
 
 ## telegram — messaging + approvals
 Create a bot with [@BotFather](https://t.me/botfather) and paste the token. To get your `chatId`, send the bot a message then use the `get_updates` operation (Playground) and read the chat id. Enable **approvalButtons** to approve/deny jobs from your phone; enable **notifyJobs** for completion pings. Operations: `send_message`, `send_document`, `get_me`, `get_updates`.

@@ -1,11 +1,12 @@
 import express from 'express';
-import type { Express, Request, Response, NextFunction } from 'express';
+import type { Express } from 'express';
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer } from 'ws';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Hub } from './hub.js';
 import { handleStreamableHttp } from './mcp.js';
+import { makeAuth } from './auth.js';
 import {
   makeConnectCtx,
   listClients,
@@ -17,18 +18,20 @@ import {
 
 const DASHBOARD_DIR = path.resolve(import.meta.dirname, '..', '..', 'dashboard', 'dist');
 
-/**
- * Auth hook: no-op on localhost today; the v1.0 remote release swaps a token/OIDC
- * check in here without touching route handlers. See docs/ROADMAP.md.
- */
-function auth(_req: Request, _res: Response, next: NextFunction): void {
-  next();
-}
-
 export function buildHttp(hub: Hub, port: number): { app: Express; server: Server } {
   const app = express();
   app.use(express.json({ limit: '25mb' }));
-  const connectCtx = () => makeConnectCtx(hub.config.get().bind, port);
+  const connectCtx = () => {
+    const cfg = hub.config.get();
+    return makeConnectCtx(cfg.bind, port, cfg.authToken);
+  };
+
+  // Bearer auth on every route. Read per request so a dashboard token change
+  // takes effect without a restart; fails closed off-loopback (hub/src/auth.ts).
+  const auth = makeAuth({
+    token: () => hub.config.get().authToken,
+    bind: () => hub.config.get().bind,
+  });
 
   // MCP Streamable HTTP
   app.post('/mcp', auth, (req, res) => void handleStreamableHttp(hub, req, res));

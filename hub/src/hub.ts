@@ -26,8 +26,9 @@ import rhino from './adapters/rhino.js';
 import coolify from './adapters/coolify.js';
 import gmail from './adapters/gmail.js';
 import chatRelay from './adapters/chat-relay.js';
+import remoteNode from './adapters/remote-node.js';
 
-const BUILTINS = [ollama, openrouter, system, telegram, wordpress, woocommerce, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca, gimp, rhino, coolify, gmail, chatRelay];
+const BUILTINS = [ollama, openrouter, system, telegram, wordpress, woocommerce, whatsapp, facebook, instagram, linkedin, x, openaiCompat, blender, orca, gimp, rhino, coolify, gmail, chatRelay, remoteNode];
 
 /** Composition root: one Hub per process, shared by stdio MCP, HTTP MCP, REST and WS. */
 export class Hub {

@@ -21,10 +21,11 @@
 - Module marketplace format: installable module packages with signed manifests.
 
 ## v1.0 — remote & multi-user
+- **Bearer auth + Remote Node Management delivered ✓:** `/mcp` and `/api` accept a hub `authToken`, and a non-loopback bind without one is a startup error rather than a warning. The `remote-node` module federates other hubs over a private mesh (Tailscale/Headscale), allowing plain http only to loopback/mesh/private hosts, and splitting `node_invoke` (refuses remote `dangerous` operations) from `node_invoke_privileged`. See [Remote Nodes](REMOTE-NODES.md).
 - Hosted deployment: VPS/cloud image + reverse-proxy/tunnel recipes; hub reachable over TLS.
-- AuthN/AuthZ: tokens → OIDC; **access levels per user mapped to modules/operations/risk ceilings** — the "user levels → tool calls" system (e.g. *editor* may `wordpress.create_post` as draft but never `system.run_powershell`).
+- AuthN/AuthZ: tokens ✓ → OIDC; **access levels per user mapped to modules/operations/risk ceilings** — the "user levels → tool calls" system (e.g. *editor* may `wordpress.create_post` as draft but never `system.run_powershell`).
 - Approval routing per level (whose Telegram gets the button).
-- Fleet view: one dashboard over several hubs (home PC, office PC, VPS).
+- Fleet view: one dashboard over several hubs (home PC, office PC, VPS) — `remote-node` supplies the transport; the dashboard surface is still open.
 - Audit export, retention policies.
 
 ## Shipped

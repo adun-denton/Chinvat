@@ -2,6 +2,7 @@
 import { Hub } from './hub.js';
 import { serveStdio } from './mcp.js';
 import { buildHttp } from './api.js';
+import { assertBindPolicy } from './auth.js';
 
 function hasFlag(name: string): boolean {
   return process.argv.includes(name);
@@ -29,6 +30,9 @@ async function main(): Promise<void> {
   if (!noHttp && (!stdio || explicitHttp)) {
     const cfg = hub.config.get();
     const port = Number(flagValue('--port') ?? cfg.port);
+    // Fail closed before the socket exists: a non-loopback bind with no token
+    // would publish system.run_command to the network.
+    assertBindPolicy(cfg.bind, cfg.authToken);
     const { server } = buildHttp(hub, port);
     server.on('error', (e: NodeJS.ErrnoException) => {
       process.stderr.write(

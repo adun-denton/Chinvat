@@ -12,15 +12,24 @@ export interface ConnectCtx {
   url: string; // http://127.0.0.1:<port>/mcp
   nodePath: string; // absolute node executable
   indexPath: string; // absolute path to hub/dist/index.js
+  /** Bearer token when the hub requires auth; omitted for a loopback hub with none. */
+  token?: string;
 }
 
-export function makeConnectCtx(bind: string, port: number): ConnectCtx {
+export function makeConnectCtx(bind: string, port: number, token = ''): ConnectCtx {
   const host = bind === '0.0.0.0' ? '127.0.0.1' : bind;
+  const t = token.trim();
   return {
     url: `http://${host}:${port}/mcp`,
     nodePath: process.execPath,
     indexPath: path.resolve(import.meta.dirname, 'index.js'),
+    ...(t ? { token: t } : {}),
   };
+}
+
+/** Authorization header map for a tokened hub, or an empty object. */
+export function authHeaders(ctx: ConnectCtx): Record<string, string> {
+  return ctx.token ? { Authorization: `Bearer ${ctx.token}` } : {};
 }
 
 // small fs/env helpers
@@ -150,6 +159,21 @@ interface ClientDef {
 // stdio worker entry: absolute node path so it works under Claude Desktop's minimal PATH.
 const stdioEntry = (ctx: ConnectCtx) => ({ command: ctx.nodePath, args: [ctx.indexPath, '--stdio'] });
 
+/** HTTP entry with the bearer header folded in when the hub requires one. */
+const httpEntry = (ctx: ConnectCtx, extra: Record<string, unknown> = {}) => ({
+  ...extra,
+  url: ctx.url,
+  ...(ctx.token ? { headers: authHeaders(ctx) } : {}),
+});
+
+/** mcp-remote argv for clients with no native HTTP transport (Claude Desktop). */
+const mcpRemoteArgs = (ctx: ConnectCtx): string[] => [
+  '-y',
+  'mcp-remote',
+  ctx.url,
+  ...(ctx.token ? ['--header', `Authorization: Bearer ${ctx.token}`] : []),
+];
+
 const CLIENTS: ClientDef[] = [
   {
     id: 'codex',
@@ -166,7 +190,7 @@ const CLIENTS: ClientDef[] = [
     globalPath: () => path.join(home, '.codex', 'config.toml'),
     projectPath: '.codex/config.toml',
     detect: () => (exists(path.join(home, '.codex')) ? { installed: true, via: '~/.codex' } : onPath('codex') ? { installed: true, via: 'codex on PATH' } : { installed: false, via: '' }),
-    entry: (t, ctx) => (t === 'http' ? { url: ctx.url } : stdioEntry(ctx)),
+    entry: (t, ctx) => (t === 'http' ? httpEntry(ctx) : stdioEntry(ctx)),
   },
   {
     id: 'claude-desktop',
@@ -194,7 +218,7 @@ const CLIENTS: ClientDef[] = [
       if (looksLikeClaudeAppDir(dir)) return { installed: true, via: 'Claude data folder' };
       return { installed: false, via: '' };
     },
-    entry: (t, ctx) => (t === 'stdio' ? stdioEntry(ctx) : { command: npxCommand(ctx), args: ['-y', 'mcp-remote', ctx.url] }),
+    entry: (t, ctx) => (t === 'stdio' ? stdioEntry(ctx) : { command: npxCommand(ctx), args: mcpRemoteArgs(ctx) }),
     verify: (configPath) =>
       looksLikeClaudeAppDir(path.dirname(configPath))
         ? null
@@ -214,8 +238,10 @@ const CLIENTS: ClientDef[] = [
     globalPath: () => path.join(home, '.claude.json'),
     projectPath: '.mcp.json',
     detect: () => (onPath('claude') ? { installed: true, via: 'claude on PATH' } : exists(path.join(home, '.claude.json')) ? { installed: true, via: '~/.claude.json' } : { installed: false, via: '' }),
-    entry: (t, ctx) => (t === 'http' ? { type: 'http', url: ctx.url } : stdioEntry(ctx)),
-    oneCommand: (scope, ctx) => `claude mcp add --transport http ${scope === 'project' ? '-s project ' : ''}chinvat ${ctx.url}`,
+    entry: (t, ctx) => (t === 'http' ? httpEntry(ctx, { type: 'http' }) : stdioEntry(ctx)),
+    oneCommand: (scope, ctx) =>
+      `claude mcp add --transport http ${scope === 'project' ? '-s project ' : ''}chinvat ${ctx.url}` +
+      (ctx.token ? ` --header "Authorization: Bearer ${ctx.token}"` : ''),
   },
   {
     id: 'hermes',
@@ -231,7 +257,7 @@ const CLIENTS: ClientDef[] = [
     globalPath: () => path.join(home, '.hermes', 'config.yaml'),
     projectPath: '(global only)',
     detect: () => (exists(path.join(home, '.hermes')) ? { installed: true, via: '~/.hermes' } : onPath('hermes') ? { installed: true, via: 'hermes on PATH' } : { installed: false, via: '' }),
-    entry: (t, ctx) => (t === 'http' ? { url: ctx.url } : stdioEntry(ctx)),
+    entry: (t, ctx) => (t === 'http' ? httpEntry(ctx) : stdioEntry(ctx)),
   },
   {
     id: 'cursor',
@@ -247,7 +273,7 @@ const CLIENTS: ClientDef[] = [
     globalPath: () => path.join(home, '.cursor', 'mcp.json'),
     projectPath: '.cursor/mcp.json',
     detect: () => (exists(path.join(home, '.cursor')) ? { installed: true, via: '~/.cursor' } : onPath('cursor') ? { installed: true, via: 'cursor on PATH' } : { installed: false, via: '' }),
-    entry: (t, ctx) => (t === 'http' ? { url: ctx.url } : stdioEntry(ctx)),
+    entry: (t, ctx) => (t === 'http' ? httpEntry(ctx) : stdioEntry(ctx)),
   },
   {
     id: 'generic',
@@ -263,7 +289,7 @@ const CLIENTS: ClientDef[] = [
     globalPath: () => null,
     projectPath: '(client-specific)',
     detect: () => ({ installed: true, via: 'transport-only' }),
-    entry: (t, ctx) => (t === 'http' ? { type: 'http', url: ctx.url } : stdioEntry(ctx)),
+    entry: (t, ctx) => (t === 'http' ? httpEntry(ctx, { type: 'http' }) : stdioEntry(ctx)),
   },
 ];
 
@@ -276,7 +302,8 @@ function def(id: string): ClientDef {
 function snippetFor(d: ClientDef, t: Transport, ctx: ConnectCtx): string {
   if (d.id === 'generic') {
     return t === 'http'
-      ? `Transport: Streamable HTTP\nURL:       ${ctx.url}`
+      ? `Transport: Streamable HTTP\nURL:       ${ctx.url}` +
+          (ctx.token ? `\nHeader:    Authorization: Bearer ${ctx.token}` : '')
       : `Transport: stdio\nCommand:   ${ctx.nodePath}\nArgs:      ${ctx.indexPath} --stdio`;
   }
   return serialize({ [d.container]: { chinvat: d.entry(t, ctx) } }, d.format);
@@ -408,7 +435,10 @@ export async function testEndpoint(ctx: ConnectCtx): Promise<EndpointTest> {
   try {
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
     const { StreamableHTTPClientTransport } = await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
-    const transport = new StreamableHTTPClientTransport(new URL(ctx.url));
+    const headers = authHeaders(ctx);
+    const transport = new StreamableHTTPClientTransport(new URL(ctx.url), {
+      ...(Object.keys(headers).length ? { requestInit: { headers } } : {}),
+    });
     const client = new Client({ name: 'chinvat-selftest', version: '0.1.0' });
     await client.connect(transport);
     const tools = await client.listTools();

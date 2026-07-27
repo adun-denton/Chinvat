@@ -16,7 +16,7 @@ A green health result proves the configured identity or endpoint. It does not al
 
 Exact service prerequisites and fields are listed in [Modules](MODULES.md).
 
-Chinvat has exactly 19 built-ins: `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `woocommerce`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`, `gmail`, and `chat-relay`. By default, `ollama`, `openrouter`, `system`, `telegram`, and `wordpress` are enabled. The others remain disabled until configured; `woocommerce` defaults to the **approve** tier.
+Chinvat has exactly 20 built-ins: `ollama`, `openrouter`, `openai-compatible`, `system`, `telegram`, `wordpress`, `woocommerce`, `coolify`, `blender`, `orca`, `gimp`, `rhino`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `x`, `gmail`, `chat-relay`, and `remote-node`. By default, `ollama`, `openrouter`, `system`, `telegram`, and `wordpress` are enabled. The others remain disabled until configured; `woocommerce` and `remote-node` default to the **approve** tier.
 
 ## Connect
 
@@ -48,10 +48,36 @@ The directory is git-ignored. Back it up securely if needed, but never commit or
 
 - `CHINVAT_PORT`
 - `CHINVAT_DATA_DIR`
+- `CHINVAT_BIND`
+- `CHINVAT_AUTH_TOKEN`
+
+## Authentication and bind policy
+
+`bind` defaults to `127.0.0.1` and `authToken` defaults to empty, which keeps the
+local experience zero-config. Beyond loopback the rules are strict and enforced
+at startup:
+
+- A non-loopback `bind` with no `authToken` is a **startup error**, not a warning.
+  An untokened off-box hub would publish `system.run_command` to the network.
+- Any configured `authToken` must be at least 24 characters.
+- When a token is set, every `/mcp` and `/api` request must carry
+  `Authorization: Bearer <token>` — including on loopback.
+
+Generate one with:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+The **Connect** page folds the token into the client snippets it generates, so a
+tokened hub stays one copy-paste away from a working coordinator.
+
+Exposing a hub is covered end to end in [Remote Nodes](REMOTE-NODES.md).
 
 ## Safe defaults
 
-- Keep the hub bound to `127.0.0.1`.
+- Keep the hub bound to `127.0.0.1` unless you are deliberately running a remote
+  node; then bind to the mesh address, never `0.0.0.0`.
 - Start system, messaging, and publishing modules at **approve**.
 - Restrict the system module's `allowedRoot`.
 - Use provider-side budgets and long-lived tokens only where necessary.

@@ -119,7 +119,7 @@ Model inference is `read`, so it runs at every tier without approval.
 
 ## Docs
 
-[Getting started](docs/GETTING-STARTED.md) · [Using models](docs/MODELS.md) · [Configuration](docs/CONFIGURATION.md) · [Modules guide](docs/MODULES.md) · [راهنمای فارسی](docs/fa/README.md)
+[Getting started](docs/GETTING-STARTED.md) · [Using models](docs/MODELS.md) · [Configuration](docs/CONFIGURATION.md) · [Modules guide](docs/MODULES.md) · [Remote nodes](docs/REMOTE-NODES.md) · [راهنمای فارسی](docs/fa/README.md)
 
 [Development plan](docs/DEVELOPMENT-PLAN.md) · [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) · [Local-app bridge design](docs/DESIGN-local-app-bridges.md) · [Agent handover](AGENTS.md)
 
