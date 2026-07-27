@@ -95,6 +95,11 @@ Environment overrides are available if you prefer not to edit the file:
 Start it, and keep the node's own tiers conservative — leave `system` at
 **approve** unless you have a specific reason not to.
 
+The node's own dashboard stays usable: opening `http://100.101.102.103:7777`
+prompts for the token once and remembers it in that browser. The live event
+stream at `/ws` is gated the same way, since it carries job arguments and
+results.
+
 ## Step 3 — register the node on your machine
 
 On your machine, open the dashboard, find the **remote-node** card, and set

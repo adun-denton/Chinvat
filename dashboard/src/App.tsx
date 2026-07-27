@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, useHubEvents, type Status } from './api';
+import { api, getToken, setToken, useHubEvents, UnauthorizedError, type Status } from './api';
+import Unlock from './views/Unlock';
 import Overview from './views/Overview';
 import Jobs from './views/Jobs';
 import Approvals from './views/Approvals';
@@ -48,21 +49,43 @@ export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [locked, setLocked] = useState(false);
+  // Bumped on unlock so the event socket reconnects carrying the new token.
+  const [authEpoch, setAuthEpoch] = useState(0);
 
-  const refreshStatus = useCallback(() => { api.status().then(setStatus).catch(() => setStatus(null)); }, []);
+  const refreshStatus = useCallback(() => {
+    api.status().then((s) => { setStatus(s); setLocked(false); }).catch((e) => {
+      setStatus(null);
+      if (e instanceof UnauthorizedError) setLocked(true);
+    });
+  }, []);
 
   useEffect(() => {
     refreshStatus();
     const t = setInterval(refreshStatus, 5000);
     return () => clearInterval(t);
+  }, [refreshStatus, authEpoch]);
+
+  const unlocked = useCallback(() => {
+    setLocked(false);
+    setAuthEpoch((n) => n + 1);
+    refreshStatus();
   }, [refreshStatus]);
+
+  const forget = useCallback(() => {
+    setToken('');
+    setStatus(null);
+    setLocked(true);
+    setAuthEpoch((n) => n + 1);
+  }, []);
 
   const connected = useHubEvents(
     useCallback((evt: any) => {
       setTick((n) => n + 1);
       if (evt.type === 'approval.requested') setFlash('New approval request');
       if (evt.type === 'job.status' || evt.type === 'approval.resolved') refreshStatus();
-    }, [refreshStatus])
+    }, [refreshStatus]),
+    authEpoch
   );
 
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 2600); return () => clearTimeout(t); }, [flash]);
@@ -70,6 +93,8 @@ export default function App() {
   const notify = useCallback((m: string) => setFlash(m), []);
   const pending = status?.pending_approvals ?? 0;
   const t = TITLES[view];
+
+  if (locked) return <Unlock onUnlocked={unlocked} />;
 
   return (
     <div className="shell">
@@ -94,6 +119,11 @@ export default function App() {
             <div className="faint mono" style={{ fontSize: 11, marginTop: 6 }}>
               v{status.version} · {status.platform} · up {Math.round(status.uptime_sec / 60)}m
             </div>
+          )}
+          {getToken() && (
+            <button className="linkish" onClick={forget} title="Remove the stored token from this browser">
+              forget token
+            </button>
           )}
         </div>
       </aside>

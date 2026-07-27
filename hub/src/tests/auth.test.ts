@@ -4,10 +4,13 @@ import type { Request, Response, NextFunction } from 'express';
 import {
   MIN_TOKEN_LENGTH,
   assertBindPolicy,
+  authRequired,
+  authorize,
   bearerFrom,
   isLoopbackBind,
   makeAuth,
   tokenMatches,
+  wsTokenFrom,
 } from '../auth.js';
 
 const GOOD = 'a'.repeat(MIN_TOKEN_LENGTH);
@@ -108,4 +111,37 @@ test('unauthorized responses advertise the bearer scheme', () => {
   const probe = run(auth, 'Bearer nope');
   assert.equal(probe.status, 401);
   assert.match(probe.headers['WWW-Authenticate'], /Bearer/);
+});
+
+test('every transport shares one decision procedure', () => {
+  const tokened = { token: () => GOOD, bind: () => '100.64.0.1' };
+  const open = { token: () => '', bind: () => '127.0.0.1' };
+  const broken = { token: () => '', bind: () => '0.0.0.0' };
+  assert.deepEqual(authorize(tokened, GOOD), { ok: true });
+  assert.deepEqual(authorize(open, undefined), { ok: true });
+  assert.equal(authorize(tokened, undefined).ok, false);
+  assert.equal((authorize(tokened, 'nope') as { status: number }).status, 401);
+  assert.equal((authorize(broken, GOOD) as { status: number }).status, 500);
+});
+
+test('authRequired tells the dashboard whether to prompt', () => {
+  assert.equal(authRequired({ token: () => GOOD, bind: () => '100.64.0.1' }), true);
+  assert.equal(authRequired({ token: () => '  ', bind: () => '127.0.0.1' }), false);
+});
+
+test('websocket upgrades accept a query token, header taking precedence', () => {
+  // Browsers cannot set headers on new WebSocket(), so /ws?token= is the only channel.
+  assert.equal(wsTokenFrom('/ws?token=abc', undefined), 'abc');
+  assert.equal(wsTokenFrom('/ws?token=a%2Fb', undefined), 'a/b', 'query value is decoded');
+  assert.equal(wsTokenFrom('/ws', 'Bearer hdr'), 'hdr');
+  assert.equal(wsTokenFrom('/ws?token=qry', 'Bearer hdr'), 'hdr', 'header wins');
+  assert.equal(wsTokenFrom('/ws', undefined), undefined);
+  assert.equal(wsTokenFrom(undefined, undefined), undefined);
+});
+
+test('the event stream is gated exactly like the api', () => {
+  const deps = { token: () => GOOD, bind: () => '100.64.0.1' };
+  assert.equal(authorize(deps, wsTokenFrom(`/ws?token=${GOOD}`, undefined)).ok, true);
+  assert.equal(authorize(deps, wsTokenFrom('/ws', undefined)).ok, false, 'no token must not stream jobs');
+  assert.equal(authorize(deps, wsTokenFrom('/ws?token=wrong', undefined)).ok, false);
 });

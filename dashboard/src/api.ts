@@ -31,13 +31,66 @@ export interface EndpointTest { ok: boolean; url: string; detail: string; toolCo
 export interface InstallPreview { clientId: string; transport: string; path: string; format: string; exists: boolean; before: string; after: string; backupPath: string | null; warning: string | null }
 export interface InstallResult { path: string; backup: string | null; merged: boolean; warning: string | null }
 
+/**
+ * Token handling. A loopback hub with no authToken needs none, so the default
+ * path stays zero-config. A remote node binds to its mesh address and therefore
+ * must have a token; this is where the operator supplies it.
+ *
+ * Stored in localStorage: it is a bearer credential for a hub the browser can
+ * already reach, and the alternative is retyping it on every page load.
+ */
+const TOKEN_KEY = 'chinvat.token';
+
+export function getToken(): string {
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setToken(token: string): void {
+  try {
+    const t = token.trim();
+    if (t) localStorage.setItem(TOKEN_KEY, t);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* private mode — the session simply will not persist */
+  }
+}
+
+/** Thrown on 401 so the shell can show the token prompt instead of an error card. */
+export class UnauthorizedError extends Error {
+  constructor(message = 'unauthorized') {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+/** Does this hub require a token? Answered without one. */
+export async function authRequired(): Promise<boolean> {
+  try {
+    const res = await fetch('/auth/required');
+    if (!res.ok) return false;
+    return Boolean((await res.json())?.required);
+  } catch {
+    return false;
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers || {}),
+    },
   });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
+  if (res.status === 401) throw new UnauthorizedError(body?.error || 'unauthorized');
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
   return body as T;
 }
@@ -67,8 +120,11 @@ export const api = {
     req<InstallResult>('/connect/apply', { method: 'POST', body: JSON.stringify({ client, transport }) }),
 };
 
-/** Subscribe to the hub's live event stream; invokes cb on every event and auto-reconnects. */
-export function useHubEvents(cb: (evt: any) => void): boolean {
+/**
+ * Subscribe to the hub's live event stream; invokes cb on every event and
+ * auto-reconnects. Bump `epoch` to force a reconnect after the token changes.
+ */
+export function useHubEvents(cb: (evt: any) => void, epoch = 0): boolean {
   const [connected, setConnected] = useState(false);
   const cbRef = useRef(cb);
   cbRef.current = cb;
@@ -78,7 +134,11 @@ export function useHubEvents(cb: (evt: any) => void): boolean {
     let closed = false;
     const connect = () => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      ws = new WebSocket(`${proto}://${location.host}/ws`);
+      // Browsers cannot set an Authorization header on a WebSocket, so the hub
+      // accepts the token as a query parameter on /ws.
+      const token = getToken();
+      const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+      ws = new WebSocket(`${proto}://${location.host}/ws${qs}`);
       ws.onopen = () => setConnected(true);
       ws.onmessage = (e) => { try { cbRef.current(JSON.parse(e.data)); } catch {} };
       ws.onclose = () => { setConnected(false); if (!closed) retry = setTimeout(connect, 2000); };
@@ -86,7 +146,7 @@ export function useHubEvents(cb: (evt: any) => void): boolean {
     };
     connect();
     return () => { closed = true; clearTimeout(retry); ws?.close(); };
-  }, []);
+  }, [epoch]);
   return connected;
 }
 

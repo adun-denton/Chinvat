@@ -75,6 +75,30 @@ export interface AuthDeps {
   bind(): string;
 }
 
+export type AuthVerdict =
+  | { ok: true }
+  | { ok: false; status: 401 | 500; error: string };
+
+/**
+ * One decision procedure for every transport. HTTP presents the token in an
+ * Authorization header; browser WebSockets cannot set headers, so `/ws` passes
+ * it as a query parameter instead. Both land here so the rules cannot drift.
+ */
+export function authorize(deps: AuthDeps, presented: string | undefined): AuthVerdict {
+  const expected = (deps.token() || '').trim();
+  if (!expected) {
+    if (isLoopbackBind(deps.bind())) return { ok: true };
+    return { ok: false, status: 500, error: 'hub misconfigured: non-loopback bind without authToken' };
+  }
+  if (tokenMatches(expected, presented)) return { ok: true };
+  return { ok: false, status: 401, error: 'unauthorized' };
+}
+
+/** True when clients must present a token — drives the dashboard's login prompt. */
+export function authRequired(deps: AuthDeps): boolean {
+  return (deps.token() || '').trim() !== '';
+}
+
 /**
  * Express middleware. When a token is configured every request must present it.
  * When none is configured the hub must be loopback-bound, and requests pass —
@@ -82,14 +106,26 @@ export interface AuthDeps {
  */
 export function makeAuth(deps: AuthDeps): RequestHandler {
   return function auth(req: Request, res: Response, next: NextFunction): void {
-    const expected = (deps.token() || '').trim();
-    if (!expected) {
-      if (isLoopbackBind(deps.bind())) return next();
-      res.status(500).json({ error: 'hub misconfigured: non-loopback bind without authToken' });
-      return;
-    }
-    if (tokenMatches(expected, bearerFrom(req.headers.authorization))) return next();
-    res.setHeader('WWW-Authenticate', 'Bearer realm="chinvat"');
-    res.status(401).json({ error: 'unauthorized' });
+    const verdict = authorize(deps, bearerFrom(req.headers.authorization));
+    if (verdict.ok) return next();
+    if (verdict.status === 401) res.setHeader('WWW-Authenticate', 'Bearer realm="chinvat"');
+    res.status(verdict.status).json({ error: verdict.error });
   };
+}
+
+/**
+ * Token for a WebSocket upgrade. Browsers cannot set an Authorization header on
+ * `new WebSocket(...)`, so `/ws?token=…` is the only workable channel; a header
+ * is still accepted for non-browser clients and takes precedence.
+ */
+export function wsTokenFrom(url: string | undefined, authorization: string | undefined): string | undefined {
+  const header = bearerFrom(authorization);
+  if (header) return header;
+  if (!url) return undefined;
+  try {
+    const q = new URL(url, 'http://placeholder.invalid').searchParams.get('token');
+    return q ?? undefined;
+  } catch {
+    return undefined;
+  }
 }

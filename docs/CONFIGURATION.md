@@ -62,6 +62,13 @@ at startup:
 - Any configured `authToken` must be at least 24 characters.
 - When a token is set, every `/mcp` and `/api` request must carry
   `Authorization: Bearer <token>` — including on loopback.
+- The `/ws` event stream is gated identically. Browsers cannot set headers on a
+  WebSocket, so it accepts `?token=…`; an `Authorization` header still wins for
+  non-browser clients.
+- The dashboard prompts for the token when the hub answers 401 and keeps it in
+  that browser's local storage. Use **forget token** in the sidebar to clear it.
+  `GET /auth/required` is deliberately unauthenticated so the dashboard knows
+  whether to prompt; it reveals nothing a 401 would not.
 
 Generate one with:
 

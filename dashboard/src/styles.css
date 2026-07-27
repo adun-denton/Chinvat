@@ -258,6 +258,27 @@ a { color: var(--bridge); }
 }
 @media (prefers-reduced-motion: reduce) { .mote.run { animation: none; } }
 
+/* Unlock gate — shown when the hub answers 401 */
+.unlock { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--void); }
+.unlock-card { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 30px 28px; box-shadow: var(--shadow); }
+.unlock-card h2 { font-family: var(--serif); font-size: 20px; font-weight: 500; margin: 6px 0 0; }
+.unlock-card p { margin: 0; font-size: 13px; line-height: 1.55; }
+.unlock-card p.small { font-size: 11.5px; }
+.unlock-card code { font-family: var(--mono); font-size: 12px; color: var(--bridge); }
+.unlock-card input { font-family: var(--mono); font-size: 13px; padding: 11px 13px; color: var(--ink);
+  background: #0b1512; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.unlock-card input:focus { outline: none; border-color: var(--bridge-deep); }
+.unlock-card button { padding: 11px 14px; font-size: 13.5px; color: var(--void); cursor: pointer;
+  background: var(--bridge); border: none; border-radius: var(--radius-sm); }
+.unlock-card button:disabled { opacity: 0.5; cursor: default; }
+.unlock-error { font-size: 12.5px; color: var(--risk); border: 1px solid var(--risk-deep);
+  border-radius: var(--radius-sm); padding: 8px 11px; background: #23100d; }
+.rail .foot .linkish { margin-top: 8px; padding: 0; font-size: 11px; cursor: pointer;
+  background: none; border: none; color: var(--ink-faint); text-decoration: underline; }
+.rail .foot .linkish:hover { color: var(--ink-dim); }
+
 /* Connect view */
 .endpoint-url, code.path { font-family: var(--mono); font-size: 12.5px; background: #0b1512;
   border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; color: var(--bridge); word-break: break-all; }

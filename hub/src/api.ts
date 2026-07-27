@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Hub } from './hub.js';
 import { handleStreamableHttp } from './mcp.js';
-import { makeAuth } from './auth.js';
+import { authRequired, authorize, makeAuth, wsTokenFrom, type AuthDeps } from './auth.js';
 import {
   makeConnectCtx,
   listClients,
@@ -28,10 +28,15 @@ export function buildHttp(hub: Hub, port: number): { app: Express; server: Serve
 
   // Bearer auth on every route. Read per request so a dashboard token change
   // takes effect without a restart; fails closed off-loopback (hub/src/auth.ts).
-  const auth = makeAuth({
+  const authDeps: AuthDeps = {
     token: () => hub.config.get().authToken,
     bind: () => hub.config.get().bind,
-  });
+  };
+  const auth = makeAuth(authDeps);
+
+  // Unauthenticated by design: tells the dashboard whether to prompt for a
+  // token before it renders. Reveals nothing a 401 would not already reveal.
+  app.get('/auth/required', (_req, res) => res.json({ required: authRequired(authDeps) }));
 
   // MCP Streamable HTTP
   app.post('/mcp', auth, (req, res) => void handleStreamableHttp(hub, req, res));
@@ -224,7 +229,17 @@ export function buildHttp(hub: Hub, port: number): { app: Express; server: Serve
 
   // WebSocket: live job/approval/module events
   const server = createServer(app);
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  const wss = new WebSocketServer({
+    server,
+    path: '/ws',
+    // The event stream carries job arguments and results, so it needs the same
+    // gate as /api. Browsers cannot set headers here — see wsTokenFrom.
+    verifyClient: ({ req }, done) => {
+      const verdict = authorize(authDeps, wsTokenFrom(req.url, req.headers.authorization));
+      if (verdict.ok) return done(true);
+      done(false, verdict.status, verdict.error);
+    },
+  });
   // ws re-emits the http server's 'error' onto the wss; keep a listener so a listen
   // failure (e.g. EADDRINUSE from a second hub) is logged, not thrown as unhandled.
   wss.on('error', (e) => process.stderr.write(`[chinvat] websocket server error: ${e}\n`));
