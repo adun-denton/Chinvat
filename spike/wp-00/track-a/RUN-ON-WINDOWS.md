@@ -22,14 +22,14 @@ several best-effort/Windows-only workarounds called out in comments.
 
 **Terminal 1 — fixture server** (leave running for the whole session):
 ```
-cd C:\Users\Ehsan\Documents\Chinvat\spike\wp-00\fixture
+cd %USERPROFILE%\Documents\Chinvat\spike\wp-00\fixture
 node server.mjs
 ```
 You should see `fixture listening http://127.0.0.1:8177`.
 
 **Terminal 2 — harness:**
 ```
-cd C:\Users\Ehsan\Documents\Chinvat\spike\wp-00\track-a
+cd %USERPROFILE%\Documents\Chinvat\spike\wp-00\track-a
 node run-connection-modes.mjs
 ```
 The harness checks the fixture URL is reachable before doing anything else.
@@ -81,7 +81,7 @@ handwritten notes are the actual ground truth for this metric.
 
 ## Where results land
 
-`C:\Users\Ehsan\Documents\Chinvat\spike\wp-00\results\track-a.json` by default
+`%USERPROFILE%\Documents\Chinvat\spike\wp-00\results\track-a.json` by default
 (created if missing). The file is written even if one or more modes failed —
 check `modes.<mode>.status` for `"ok"` vs `"failed"` and read `modes.<mode>.error`
 for failures. Check the top-level `notes` array and each mode's `limitations`

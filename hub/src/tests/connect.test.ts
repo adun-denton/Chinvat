@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { resolveClaudeDesktop, looksLikeClaudeAppDir } from '../connect.js';
 
-const home = 'C:\\Users\\Ehsan';
-const localAppData = 'C:\\Users\\Ehsan\\AppData\\Local';
-const appData = 'C:\\Users\\Ehsan\\AppData\\Roaming';
+const home = 'C:\\Users\\TestUser';
+const localAppData = 'C:\\Users\\TestUser\\AppData\\Local';
+const appData = 'C:\\Users\\TestUser\\AppData\\Roaming';
 
 test('claude desktop: MSIX (Store) build resolves the virtualized LocalCache path', () => {
   const r = resolveClaudeDesktop({

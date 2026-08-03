@@ -134,6 +134,6 @@ td{word-break:break-all}table{border-collapse:collapse}tr{border-bottom:1px soli
 <p>This page is served by the Chinvat spike on localhost. It is not part of the target site.</p>
 <div class="hash">proposal hash: ${esc(hash)}</div>
 <table>${rows}</table>
-<form method="POST"><input name="by" value="ehsan" aria-label="operator"><button type="submit">Approve</button></form>`);
+<form method="POST"><input name="by" value="operator" aria-label="operator"><button type="submit">Approve</button></form>`);
   }
 }

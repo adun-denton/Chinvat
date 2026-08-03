@@ -14,7 +14,7 @@ subfolder of the same name:
 
     <GIMP user dir>\plug-ins\gimp-mcp-plugin\gimp-mcp-plugin.py
 
-On this machine the GIMP user dir is `C:\Users\Ehsan\AppData\Roaming\GIMP\3.2`,
+On Windows the GIMP user dir is normally `%APPDATA%\GIMP\3.2`,
 so: `...\GIMP\3.2\plug-ins\gimp-mcp-plugin\gimp-mcp-plugin.py`.
 (Preferences → Folders → Plug-ins shows the exact path.) Restart GIMP after.
 
