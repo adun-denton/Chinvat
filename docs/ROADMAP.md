@@ -48,6 +48,14 @@ This file is future-facing. Shipped behavior belongs in the reference and archit
 - Scheduled and webhook/event-triggered jobs.
 - Artifact browser and job re-run/edit flows.
 
+## Agent Plugins compatibility
+
+- Evaluate the Agent Plugins packaging standard as an import/compatibility layer rather than a replacement for Chinvat governance.
+- Map portable plugin manifests, skills, and MCP declarations onto Chinvat capability discovery, modules, policy tiers, approvals, and job lineage.
+- Define a clean boundary between portable standard behavior and Chinvat-specific extensions such as routing, bridges, event exhaust, human gates, and Familiar-facing events.
+- Decide whether Chinvat should load Agent Plugins directly, translate them into module adapters, or support both paths.
+- Validate one representative plugin end to end before locking the relevant MVP/integration architecture.
+
 ## Publishing and commerce
 
 - WordPress export/snapshot-on-approval: materialize verified DB overrides into child-theme files, commit them, then reset overrides so files become authoritative.
