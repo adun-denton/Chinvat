@@ -1,9 +1,105 @@
+import { createHash } from 'node:crypto';
+import { closeSync, openSync, readFileSync, rmSync, statSync, writeSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { AdapterBootContext, ChinvatAdapter } from '../types.js';
 import { cfgStr, jsonFetch, msg, unknownOp } from './util.js';
 
 const api = (token: string, method: string) => `https://api.telegram.org/bot${token}/${method}`;
 
 let pollAbort: AbortController | null = null;
+
+/**
+ * Telegram allows exactly one live getUpdates call per bot token. A single MCP
+ * client (Claude desktop, for one) can spawn several hub processes, so the
+ * poll loop is fenced behind an OS-level lock file keyed on the bot token:
+ * whichever process claims it polls, the rest stay quiet and keep serving
+ * everything else. Without this, the losers spin on HTTP 409 forever.
+ */
+const LOCK_STALE_MS = 60_000;
+const LOCK_HEARTBEAT_MS = 20_000;
+
+let lockPath: string | null = null;
+let lockHeartbeat: ReturnType<typeof setInterval> | null = null;
+
+/** Last updates seen by the poll loop, so get_updates still works while polling. */
+const recentUpdates: any[] = [];
+
+const lockFileFor = (token: string) =>
+  join(tmpdir(), `chinvat-telegram-${createHash('sha256').update(token).digest('hex').slice(0, 16)}.lock`);
+
+function stampLock(path: string): void {
+  const fd = openSync(path, 'w');
+  try {
+    writeSync(fd, JSON.stringify({ pid: process.pid, at: Date.now() }));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function releasePollLock(): void {
+  if (lockHeartbeat) {
+    clearInterval(lockHeartbeat);
+    lockHeartbeat = null;
+  }
+  if (lockPath) {
+    try {
+      rmSync(lockPath, { force: true });
+    } catch {
+      /* best effort */
+    }
+    lockPath = null;
+  }
+}
+
+/** Exclusive-create the lock; steal it only if the previous holder stopped refreshing. */
+function tryAcquirePollLock(token: string, log: (m: string) => void): boolean {
+  const path = lockFileFor(token);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const fd = openSync(path, 'wx');
+      try {
+        writeSync(fd, JSON.stringify({ pid: process.pid, at: Date.now() }));
+      } finally {
+        closeSync(fd);
+      }
+      lockPath = path;
+      lockHeartbeat = setInterval(() => {
+        try {
+          stampLock(path);
+        } catch {
+          /* best effort */
+        }
+      }, LOCK_HEARTBEAT_MS);
+      lockHeartbeat.unref?.();
+      process.once('exit', releasePollLock);
+      return true;
+    } catch {
+      let age = LOCK_STALE_MS + 1;
+      try {
+        age = Date.now() - statSync(path).mtimeMs;
+      } catch {
+        /* vanished between calls — fall through and retry */
+      }
+      if (age <= LOCK_STALE_MS) {
+        let holder = '';
+        try {
+          holder = ` (pid ${JSON.parse(readFileSync(path, 'utf8')).pid})`;
+        } catch {
+          /* unreadable lock body is not fatal */
+        }
+        log(`telegram: another hub instance${holder} owns the update poll; this one will not poll`);
+        return false;
+      }
+      try {
+        rmSync(path, { force: true });
+      } catch {
+        /* best effort */
+      }
+    }
+  }
+  return false;
+}
 
 async function tg<T = any>(
   token: string,
@@ -23,46 +119,59 @@ async function tg<T = any>(
   return r.result;
 }
 
+const summarise = (u: any) => ({
+  update_id: u.update_id,
+  chat_id: u.message?.chat?.id ?? u.callback_query?.message?.chat?.id,
+  from: u.message?.from?.username,
+  text: u.message?.text,
+});
+
 /** Long-poll loop: job notifications + approval inline buttons ("chinvat:approve:<id>"). */
 async function pollLoop(ctx: AdapterBootContext): Promise<void> {
   const token = String(ctx.config.botToken);
   let offset = 0;
   const signal = pollAbort!.signal;
   ctx.log('telegram approval/notification loop started');
-  while (!signal.aborted) {
-    try {
-      const updates = await tg<any[]>(
-        token,
-        'getUpdates',
-        { timeout: 25, offset, allowed_updates: ['callback_query', 'message'] },
-        signal,
-        35_000
-      );
-      for (const u of updates) {
-        offset = Math.max(offset, u.update_id + 1);
-        const cq = u.callback_query;
-        if (cq?.data?.startsWith('chinvat:')) {
-          const [, action, approvalId] = cq.data.split(':');
-          const decision = action === 'approve' ? 'approved' : 'denied';
-          const okResolve = ctx.hub.resolveApproval(approvalId, decision, 'telegram');
-          await tg(token, 'answerCallbackQuery', {
-            callback_query_id: cq.id,
-            text: okResolve ? `Job ${decision}.` : 'Already decided.',
-          }).catch(() => undefined);
-          if (okResolve && cq.message) {
-            await tg(token, 'editMessageText', {
-              chat_id: cq.message.chat.id,
-              message_id: cq.message.message_id,
-              text: `${cq.message.text}\n\n➡ ${decision.toUpperCase()} via Telegram`,
+  try {
+    while (!signal.aborted) {
+      try {
+        const updates = await tg<any[]>(
+          token,
+          'getUpdates',
+          { timeout: 25, offset, allowed_updates: ['callback_query', 'message'] },
+          signal,
+          35_000
+        );
+        for (const u of updates) {
+          offset = Math.max(offset, u.update_id + 1);
+          recentUpdates.push(summarise(u));
+          if (recentUpdates.length > 20) recentUpdates.splice(0, recentUpdates.length - 20);
+          const cq = u.callback_query;
+          if (cq?.data?.startsWith('chinvat:')) {
+            const [, action, approvalId] = cq.data.split(':');
+            const decision = action === 'approve' ? 'approved' : 'denied';
+            const okResolve = ctx.hub.resolveApproval(approvalId, decision, 'telegram');
+            await tg(token, 'answerCallbackQuery', {
+              callback_query_id: cq.id,
+              text: okResolve ? `Job ${decision}.` : 'Already decided.',
             }).catch(() => undefined);
+            if (okResolve && cq.message) {
+              await tg(token, 'editMessageText', {
+                chat_id: cq.message.chat.id,
+                message_id: cq.message.message_id,
+                text: `${cq.message.text}\n\n➡ ${decision.toUpperCase()} via Telegram`,
+              }).catch(() => undefined);
+            }
           }
         }
+      } catch (e) {
+        if (signal.aborted) break;
+        ctx.log(`telegram poll error (retrying in 5s): ${msg(e)}`);
+        await new Promise((r) => setTimeout(r, 5000));
       }
-    } catch (e) {
-      if (signal.aborted) break;
-      ctx.log(`telegram poll error (retrying in 5s): ${msg(e)}`);
-      await new Promise((r) => setTimeout(r, 5000));
     }
+  } finally {
+    releasePollLock();
   }
 }
 
@@ -76,7 +185,7 @@ const adapter: ChinvatAdapter = {
       key: 'chatId',
       label: 'Default chat ID',
       type: 'string',
-      help: 'Your user/group chat ID for notifications & approvals. Send /start to the bot, then use get_updates to find it.',
+      help: 'Your numeric user/group chat ID for notifications & approvals. Send /start to the bot, then use get_updates to find it.',
     },
     { key: 'notifyJobs', label: 'Notify on job completion', type: 'boolean', default: false },
     { key: 'approvalButtons', label: 'Send approval requests with buttons', type: 'boolean', default: true },
@@ -153,15 +262,20 @@ const adapter: ChinvatAdapter = {
         return { output: await tg(token, 'getMe', {}, ctx.signal) };
       }
       case 'get_updates': {
-        const updates = await tg<any[]>(token, 'getUpdates', { timeout: 0 }, ctx.signal);
-        return {
-          output: updates.slice(-10).map((u) => ({
-            update_id: u.update_id,
-            chat_id: u.message?.chat?.id ?? u.callback_query?.message?.chat?.id,
-            from: u.message?.from?.username,
-            text: u.message?.text,
-          })),
-        };
+        // The poll loop drains getUpdates, so serve its cache when this process owns it.
+        if (lockPath) return { output: recentUpdates.slice(-10) };
+        try {
+          const updates = await tg<any[]>(token, 'getUpdates', { timeout: 0 }, ctx.signal);
+          return { output: updates.slice(-10).map(summarise) };
+        } catch (e) {
+          const detail = msg(e);
+          if (detail.includes('terminated by other getUpdates')) {
+            throw new Error(
+              'another hub instance is polling this bot; disable "Send approval requests with buttons" to read updates directly, or check the hub log for the incoming chat ID'
+            );
+          }
+          throw e;
+        }
       }
       default:
         unknownOp('telegram', op);
@@ -213,6 +327,16 @@ const adapter: ChinvatAdapter = {
     });
 
     pollAbort?.abort();
+    pollAbort = null;
+    releasePollLock();
+
+    // Polling exists to serve the approval buttons; skip it when they are off.
+    if (ctx.config.approvalButtons === false) {
+      ctx.log('telegram: approval buttons disabled — not polling for updates');
+      return;
+    }
+    if (!tryAcquirePollLock(token, (m) => ctx.log(m))) return;
+
     pollAbort = new AbortController();
     void pollLoop(ctx);
   },
