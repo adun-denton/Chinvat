@@ -23,6 +23,7 @@ docs/ROADMAP.md                   future work and known open slices
 
 clients/                          coordinator-specific connection instructions
 app-bridges/                      app-side setup for Blender, GIMP, Rhino, Gmail, etc.
+local-tools/                      deterministic utilities outside the Bridge/MCP boundary
 wp-plugin/chinvat-bridge/         optional WordPress companion plugin
 ```
 
@@ -39,6 +40,7 @@ wp-plugin/chinvat-bridge/         optional WordPress companion plugin
 | Understand jobs, policy, transports, and trust boundaries | [Architecture](ARCHITECTURE.md) |
 | Understand the human-gated coding relay | [Mail Relay design](DESIGN-mail-relay.md) and [Gmail setup](../app-bridges/gmail/SETUP.md) |
 | Understand Blender/GIMP/Rhino/Orca bridges | [Local-app bridge design](DESIGN-local-app-bridges.md) |
+| Prepare deterministic image derivatives locally | [VI Media Processor](../local-tools/vi-media-processor/README.md) |
 | Understand the browser-automation direction | [WP-00 empirical report](spike/WP-00-REPORT.md) |
 | See what is next | [Roadmap](ROADMAP.md) |
 | Hand work to another coding agent | [AGENTS.md](../AGENTS.md) |

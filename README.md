@@ -53,6 +53,7 @@ dashboard/src/              local React dashboard
 clients/                    coordinator configuration and Codex pack
 modules/                    external drop-in adapters loaded at boot
 app-bridges/                app-side bridge setup/assets
+local-tools/                deterministic utilities outside the Bridge/MCP boundary
 wp-plugin/chinvat-bridge/   optional WordPress Abilities companion plugin
 docs/README.md              documentation hierarchy and authority map
 docs/spike/                 measured experiments and rejected paths
@@ -107,6 +108,8 @@ External modules can be placed under `modules/<name>/` and are loaded at boot.
 - **Local applications:** socket and CLI bridge patterns for Blender, GIMP, Rhino, and Orca. [Design](docs/DESIGN-local-app-bridges.md)
 - **Browser direction:** platform adapters and governed data plane on Playwright; no custom driver protocol without new evidence. [WP-00 report](docs/spike/WP-00-REPORT.md)
 - **WordPress:** core REST in the hub plus the optional guarded WP Bridge. [Plugin guide](wp-plugin/chinvat-bridge/README.md)
+- **Local utilities:** independently executable deterministic tools that complement Chinvat without
+  becoming Bridge capabilities. [VI Media Processor](local-tools/vi-media-processor/README.md)
 
 ## Policy: what crosses the bridge
 

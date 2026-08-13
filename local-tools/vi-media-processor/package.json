@@ -1,0 +1,16 @@
+{
+  "name": "@chinvat/vi-media-processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "vi-media": "bin/vi-media.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check bin/vi-media.mjs && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
