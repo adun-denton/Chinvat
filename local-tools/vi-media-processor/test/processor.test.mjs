@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { getPreset } from '../src/presets.mjs';
+import { createPresetMap, getPreset } from '../src/presets.mjs';
 import { executeRun, prepareRun } from '../src/processor.mjs';
 
 class FakeBackend {
@@ -45,6 +45,7 @@ test('processing preserves sources, names derivatives, excludes outputs, and rec
   assert.equal(result.records.length, 3);
   assert.equal(result.records.find((record) => record.source === 'old_HERO.webp').reason, 'known_derivative');
   assert.ok(result.records.every((record) => !('caption' in record) && !('alt_text' in record)));
+  assert.ok(result.records.every((record) => record.config_source === 'built_in' && record.config_path === null));
 });
 
 test('existing output, animation, corrupt input, and undersized cover fail safely', async () => {
@@ -75,6 +76,35 @@ test('same stems are refused instead of ambiguously disambiguated', async () => 
     prepareRun({ folder, preset: getPreset('WP_GALLERY'), backend: new FakeBackend() }),
     /Output filename collision: same\.jpg, same\.png/i,
   );
+});
+
+test('project-owned config provenance is recorded for every outcome', async () => {
+  const folder = await mkdtemp(path.join(tmpdir(), 'vi-media-'));
+  await writeFile(path.join(folder, 'card.jpg'), 'source');
+  const presets = createPresetMap([{
+    ...getPreset('WP_THUMB'), id: 'SITE_CARD', label: 'Site card', version: 3, suffix: 'CARD',
+  }]);
+  const plan = await prepareRun({
+    folder,
+    preset: getPreset('SITE_CARD', presets),
+    presets,
+    backend: new FakeBackend(),
+    provenance: {
+      configPath: 'C:\\website\\vi-media.config.json',
+      configSha256: 'a'.repeat(64),
+      configSchemaVersion: 1,
+      minimumProcessorVersion: '0.2.0',
+    },
+  });
+  const result = await executeRun(plan, new FakeBackend());
+  const record = result.records[0];
+
+  assert.equal(record.config_source, 'project');
+  assert.equal(record.config_path, 'C:\\website\\vi-media.config.json');
+  assert.equal(record.config_sha256, 'a'.repeat(64));
+  assert.equal(record.config_schema_version, 1);
+  assert.equal(record.minimum_processor_version, '0.2.0');
+  assert.equal(record.processor_version, '0.2.0');
 });
 
 async function digest(filePath) {

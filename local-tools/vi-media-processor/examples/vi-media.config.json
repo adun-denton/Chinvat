@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "minimum_processor_version": "0.2.0",
+  "presets": [
+    {
+      "id": "SITE_HERO",
+      "label": "Site Hero",
+      "version": 1,
+      "suffix": "HERO",
+      "width": 1920,
+      "height": 800,
+      "mode": "cover",
+      "anchor": "center",
+      "upscale": false,
+      "onTooSmall": "skip",
+      "format": "webp",
+      "quality": 82,
+      "colorspace": "srgb",
+      "metadata": "strip",
+      "alpha": "preserve",
+      "background": "#FFFFFF"
+    },
+    {
+      "id": "SITE_GALLERY",
+      "label": "Site Gallery",
+      "version": 1,
+      "suffix": "GAL",
+      "width": 1600,
+      "height": 1600,
+      "mode": "fit",
+      "anchor": "center",
+      "upscale": false,
+      "onTooSmall": "output_smaller",
+      "format": "webp",
+      "quality": 82,
+      "colorspace": "srgb",
+      "metadata": "strip",
+      "alpha": "preserve",
+      "background": "#FFFFFF"
+    },
+    {
+      "id": "SITE_THUMB",
+      "label": "Site Thumbnail",
+      "version": 1,
+      "suffix": "THUMB",
+      "width": 600,
+      "height": 600,
+      "mode": "cover",
+      "anchor": "center",
+      "upscale": false,
+      "onTooSmall": "skip",
+      "format": "webp",
+      "quality": 82,
+      "colorspace": "srgb",
+      "metadata": "strip",
+      "alpha": "preserve",
+      "background": "#FFFFFF"
+    }
+  ]
+}
