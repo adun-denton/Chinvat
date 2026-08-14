@@ -4,16 +4,20 @@ import { createReadStream } from 'node:fs';
 import { access, copyFile, mkdir, open, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { PRESETS } from './presets.mjs';
+import { PROCESSOR_VERSION } from './version.mjs';
 import { createGeometryPlan } from './geometry.mjs';
 import { detectOutputCollisions, discoverInputs } from './discovery.mjs';
 
-export async function prepareRun({ folder, preset, backend }) {
+export async function prepareRun({ folder, preset, backend, presets = PRESETS, provenance = {} }) {
   const sourceFolder = path.resolve(folder);
   const folderStats = await stat(sourceFolder);
   if (!folderStats.isDirectory()) throw new Error(`Input is not a folder: ${sourceFolder}`);
 
   const outputDirectory = path.join(sourceFolder, 'processed', preset.id);
-  const knownSuffixes = new Set([...PRESETS.values()].map((item) => item.suffix));
+  // Derivative exclusion follows the active preset set only. Once a project config
+  // is loaded it owns that repository's modification codes; built-in codes must not
+  // leak in and silently exclude a legitimate source file.
+  const knownSuffixes = new Set([...presets.values()].map((item) => item.suffix));
   const discovered = await discoverInputs(sourceFolder, knownSuffixes);
   const collisions = detectOutputCollisions(discovered, preset, outputDirectory);
   if (collisions.length) {
@@ -51,7 +55,7 @@ export async function prepareRun({ folder, preset, backend }) {
     }
   }
 
-  return { sourceFolder, outputDirectory, preset, entries };
+  return { sourceFolder, outputDirectory, preset, entries, provenance: normalizeProvenance(provenance) };
 }
 
 export async function executeRun(plan, backend) {
@@ -61,13 +65,18 @@ export async function executeRun(plan, backend) {
   const startedAt = new Date().toISOString();
   const records = [];
 
-  for (const entry of plan.entries) {
+  for (const [entryIndex, entry] of plan.entries.entries()) {
     if (entry.status !== 'ready') {
-      records.push(toRecord(entry, plan.preset, { backendVersion, runId }));
+      records.push(toRecord(entry, plan.preset, { backendVersion, runId, provenance: plan.provenance }));
       continue;
     }
 
-    const temporaryPath = path.join(plan.outputDirectory, `.tmp-${runId}-${entry.outputName}`);
+    // Bounded length: a long stem must not push the staging path past the Windows
+    // MAX_PATH limit that the final output name would still have fitted under.
+    const temporaryPath = path.join(
+      plan.outputDirectory,
+      `.tmp-${runId.slice(0, 8)}-${entryIndex}.${plan.preset.format}`,
+    );
     const itemStarted = Date.now();
     try {
       if (await exists(entry.outputPath)) throw new SkipError('output_exists');
@@ -94,6 +103,7 @@ export async function executeRun(plan, backend) {
         status: 'ok',
         backendVersion,
         runId,
+        provenance: plan.provenance,
         outputInfo,
         outputBytes: outputStats.size,
         elapsedMs: Date.now() - itemStarted,
@@ -106,6 +116,7 @@ export async function executeRun(plan, backend) {
         error: error instanceof SkipError ? undefined : error.message,
         backendVersion,
         runId,
+        provenance: plan.provenance,
         elapsedMs: Date.now() - itemStarted,
       }));
     }
@@ -142,8 +153,25 @@ function toRecord(entry, preset, overrides = {}) {
     warnings: [],
     backend: 'nconvert',
     backend_version: overrides.backendVersion,
+    processor_version: PROCESSOR_VERSION,
+    config_source: overrides.provenance?.configSource ?? 'built_in',
+    config_path: overrides.provenance?.configPath ?? null,
+    config_sha256: overrides.provenance?.configSha256 ?? null,
+    config_schema_version: overrides.provenance?.configSchemaVersion ?? null,
+    minimum_processor_version: overrides.provenance?.minimumProcessorVersion ?? null,
     elapsed_ms: overrides.elapsedMs,
   });
+}
+
+function normalizeProvenance(provenance) {
+  const configPath = provenance.configPath ?? null;
+  return {
+    configSource: configPath ? 'project' : 'built_in',
+    configPath,
+    configSha256: provenance.configSha256 ?? null,
+    configSchemaVersion: provenance.configSchemaVersion ?? null,
+    minimumProcessorVersion: provenance.minimumProcessorVersion ?? null,
+  };
 }
 
 function validateOutput(info, expected) {

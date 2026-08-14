@@ -22,7 +22,20 @@ export async function discoverInputs(folder, knownSuffixes) {
     });
   }
 
-  return discovered.sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+  return discovered.sort(compareDiscoveredNames);
+}
+
+// Ordering must not depend on the operator's Windows locale or on the order the
+// filesystem happens to return entries in: pin the collator locale, then break
+// remaining ties (case-only or accent-only differences) by code point so the
+// sort is a total order and run records are reproducible.
+const NAME_COLLATOR = new Intl.Collator('en-US', { sensitivity: 'base' });
+
+export function compareDiscoveredNames(left, right) {
+  const collated = NAME_COLLATOR.compare(left.name, right.name);
+  if (collated !== 0) return collated;
+  if (left.name === right.name) return 0;
+  return left.name < right.name ? -1 : 1;
 }
 
 export function detectOutputCollisions(items, preset, outputDirectory) {
