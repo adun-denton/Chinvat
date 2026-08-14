@@ -9,6 +9,7 @@ import type {
 } from './types.js';
 import type { ConfigStore } from './config.js';
 import type { ArtifactStore } from './artifacts.js';
+import type { DB } from './db.js';
 
 export interface ModuleInfo {
   name: string;
@@ -35,7 +36,8 @@ export class Registry {
   constructor(
     private readonly config: ConfigStore,
     private readonly artifacts: ArtifactStore,
-    readonly shutdownSignal: AbortSignal
+    readonly shutdownSignal: AbortSignal,
+    private readonly db?: DB
   ) {}
 
   register(adapter: ChinvatAdapter, external = false): void {
@@ -103,6 +105,7 @@ export class Registry {
       saveArtifact: (name, content) => this.artifacts.save(jobId ?? 'adhoc', name, content),
       log: (message) => this.logSink(jobId, module, message),
       signal: signal ?? this.shutdownSignal,
+      db: this.db,
     };
   }
 

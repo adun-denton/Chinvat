@@ -47,7 +47,7 @@ export class Hub {
     this.db = openDb(dataDir);
     this.bus = new EventBus();
     this.artifacts = new ArtifactStore(dataDir);
-    this.registry = new Registry(this.config, this.artifacts, this.shutdownController.signal);
+    this.registry = new Registry(this.config, this.artifacts, this.shutdownController.signal, this.db);
     for (const adapter of BUILTINS) this.registry.register(adapter);
     this.jobs = new JobEngine(this.db, this.bus, this.registry, this.config);
     this.registry.logSink = (jobId, module, message) => this.jobs.log(jobId, module, message);

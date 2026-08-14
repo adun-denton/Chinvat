@@ -1,5 +1,7 @@
 /** Chinvat core types — the adapter contract everything else depends on. */
 
+import type { DB } from './db.js';
+
 export type Risk = 'read' | 'act' | 'dangerous';
 export type Tier = 'observe' | 'approve' | 'autonomous';
 export type JobStatus =
@@ -81,6 +83,13 @@ export interface AdapterContext {
   log(message: string): void;
   /** Aborted when the job is cancelled or the hub shuts down. */
   signal?: AbortSignal;
+  /**
+   * Shared Hub SQLite connection (the same instance for the process
+   * lifetime — adapters must not open their own per-call connections).
+   * Optional so existing hand-built test contexts keep compiling; the
+   * real registry always populates it.
+   */
+  db?: DB;
 }
 
 export interface ApprovalInfo {

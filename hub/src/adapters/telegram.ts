@@ -1,9 +1,50 @@
-import type { AdapterBootContext, ChinvatAdapter } from '../types.js';
+import type { AdapterBootContext, AdapterContext, ChinvatAdapter } from '../types.js';
+import type { DB } from '../db.js';
 import { cfgStr, jsonFetch, msg, unknownOp } from './util.js';
+import {
+  chatsList,
+  getOffset,
+  messagesList,
+  messagesSearch,
+  messagesSince,
+  persistUpdates,
+  recentUpdatesView,
+  resolveChatId,
+} from './telegram-store.js';
 
 const api = (token: string, method: string) => `https://api.telegram.org/bot${token}/${method}`;
 
 let pollAbort: AbortController | null = null;
+
+function requireDb(ctx: AdapterContext): DB {
+  if (!ctx.db) throw new Error('telegram: database not available in this context');
+  return ctx.db;
+}
+
+const INVITE_LINK_RE = /(^tg:\/\/join)|((?:t\.me|telegram\.me|telegram\.dog)\/(?:\+|joinchat\/))/i;
+
+/** Bot API cannot resolve invite links to a chat_id — reject them outright rather than pretend. */
+function rejectInviteLink(raw: string): void {
+  if (INVITE_LINK_RE.test(raw.trim())) {
+    throw new Error(
+      `chat_id must not be an invite link ('${raw}') — invite links cannot be resolved via the Bot API; use the numeric chat ID or @username`
+    );
+  }
+}
+
+/** Resolves a stale, migrated numeric chat_id to its current identity. Non-numeric IDs (e.g. @username) pass through. */
+function resolveChatArg(db: DB, raw: string): { requested: string; resolved: string } {
+  const n = Number(raw);
+  if (!Number.isInteger(n)) return { requested: raw, resolved: raw };
+  return { requested: raw, resolved: String(resolveChatId(db, n)) };
+}
+
+function numericChatFilter(raw: unknown): number | undefined {
+  if (raw == null) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value)) throw new Error('chat_id filter must be a numeric Telegram chat ID');
+  return value;
+}
 
 async function tg<T = any>(
   token: string,
@@ -23,23 +64,37 @@ async function tg<T = any>(
   return r.result;
 }
 
-/** Long-poll loop: job notifications + approval inline buttons ("chinvat:approve:<id>"). */
-async function pollLoop(ctx: AdapterBootContext): Promise<void> {
+/**
+ * Long-poll loop: the sole Telegram getUpdates consumer. Every batch is
+ * persisted (updates + chat registry + migrations + next offset) in one
+ * transaction before the loop calls getUpdates with the advanced offset —
+ * so an update is never acknowledged to Telegram before it is durable.
+ * Also drives job notifications + approval inline buttons ("chinvat:approve:<id>").
+ */
+async function pollLoop(ctx: AdapterBootContext, signal: AbortSignal): Promise<void> {
   const token = String(ctx.config.botToken);
-  let offset = 0;
-  const signal = pollAbort!.signal;
+  const db = requireDb(ctx);
+  let offset = getOffset(db);
   ctx.log('telegram approval/notification loop started');
   while (!signal.aborted) {
     try {
       const updates = await tg<any[]>(
         token,
         'getUpdates',
-        { timeout: 25, offset, allowed_updates: ['callback_query', 'message'] },
+        {
+          timeout: 25,
+          offset,
+          allowed_updates: ['callback_query', 'message', 'edited_message', 'channel_post', 'edited_channel_post'],
+        },
         signal,
         35_000
       );
+      if (updates.length > 0) {
+        const nextOffset = updates.reduce((m, u) => Math.max(m, u.update_id + 1), offset);
+        persistUpdates(db, updates, nextOffset);
+        offset = nextOffset;
+      }
       for (const u of updates) {
-        offset = Math.max(offset, u.update_id + 1);
         const cq = u.callback_query;
         if (cq?.data?.startsWith('chinvat:')) {
           const [, action, approvalId] = cq.data.split(':');
@@ -106,9 +161,55 @@ const adapter: ChinvatAdapter = {
     { name: 'get_me', description: 'Bot identity check.', risk: 'read', params: {} },
     {
       name: 'get_updates',
-      description: 'Recent updates (find your chat ID here).',
+      description:
+        'Recent updates from the local durable store (compatibility view; find your chat ID here). Never calls Telegram.',
       risk: 'read',
-      params: {},
+      params: {
+        chat_id: { type: 'string', description: 'filter to one chat' },
+        limit: { type: 'number', description: 'default 10, max 100' },
+      },
+    },
+    {
+      name: 'messages_list',
+      description: 'List locally stored messages, most recent first by default.',
+      risk: 'read',
+      params: {
+        chat_id: { type: 'string', description: 'filter to one chat' },
+        limit: { type: 'number', description: 'default 50, max 100' },
+        order: { type: 'string', description: "'asc' or 'desc' (default 'desc')" },
+      },
+    },
+    {
+      name: 'messages_since',
+      description: 'List locally stored messages after an explicit timestamp or update_id boundary.',
+      risk: 'read',
+      params: {
+        since_ts: { type: 'number', description: 'ms-epoch boundary on message date' },
+        since_update_id: { type: 'number', description: 'update_id boundary (exclusive)' },
+        chat_id: { type: 'string' },
+        limit: { type: 'number', description: 'default 50, max 100' },
+        order: { type: 'string', description: "'asc' or 'desc' (default 'asc')" },
+      },
+    },
+    {
+      name: 'messages_search',
+      description: 'Search stored message/caption text.',
+      risk: 'read',
+      params: {
+        query: { type: 'string', required: true },
+        chat_id: { type: 'string' },
+        limit: { type: 'number', description: 'default 50, max 100' },
+        order: { type: 'string', description: "'asc' or 'desc' (default 'desc')" },
+      },
+    },
+    {
+      name: 'chats_list',
+      description: 'List chats observed by the durable ingestion loop.',
+      risk: 'read',
+      params: {
+        limit: { type: 'number', description: 'default 50, max 100' },
+        order: { type: 'string', description: "'asc' or 'desc' (default 'desc')" },
+      },
     },
   ],
 
@@ -123,20 +224,30 @@ const adapter: ChinvatAdapter = {
   },
 
   invoke: async (op, args, ctx) => {
-    const token = cfgStr(ctx.config, 'botToken');
     const chatId = String(args.chat_id ?? ctx.config.chatId ?? '');
     switch (op) {
       case 'send_message': {
         if (!chatId) throw new Error('no chat_id given and no default chatId configured');
-        const payload: Record<string, unknown> = { chat_id: chatId, text: String(args.text) };
+        rejectInviteLink(chatId);
+        const token = cfgStr(ctx.config, 'botToken');
+        const { requested, resolved } = resolveChatArg(requireDb(ctx), chatId);
+        const payload: Record<string, unknown> = { chat_id: resolved, text: String(args.text) };
         if (args.parse_mode) payload.parse_mode = args.parse_mode;
         const r = await tg(token, 'sendMessage', payload, ctx.signal);
-        return { output: { message_id: r.message_id, chat_id: chatId } };
+        const output: Record<string, unknown> = { message_id: r.message_id, chat_id: resolved };
+        if (resolved !== requested) {
+          output.requested_chat_id = requested;
+          output.resolved_chat_id = resolved;
+        }
+        return { output };
       }
       case 'send_document': {
         if (!chatId) throw new Error('no chat_id given and no default chatId configured');
+        rejectInviteLink(chatId);
+        const token = cfgStr(ctx.config, 'botToken');
+        const { requested, resolved } = resolveChatArg(requireDb(ctx), chatId);
         const form = new FormData();
-        form.set('chat_id', chatId);
+        form.set('chat_id', resolved);
         form.set(
           'document',
           new Blob([String(args.content)], { type: 'text/plain' }),
@@ -147,20 +258,73 @@ const adapter: ChinvatAdapter = {
           body: form,
           signal: ctx.signal,
         });
-        return { output: { message_id: r.result?.message_id } };
+        const output: Record<string, unknown> = {
+          message_id: r.result?.message_id,
+          chat_id: resolved,
+        };
+        if (resolved !== requested) {
+          output.requested_chat_id = requested;
+          output.resolved_chat_id = resolved;
+        }
+        return { output };
       }
       case 'get_me': {
+        const token = cfgStr(ctx.config, 'botToken');
         return { output: await tg(token, 'getMe', {}, ctx.signal) };
       }
       case 'get_updates': {
-        const updates = await tg<any[]>(token, 'getUpdates', { timeout: 0 }, ctx.signal);
+        const db = requireDb(ctx);
+        const chat = numericChatFilter(args.chat_id);
         return {
-          output: updates.slice(-10).map((u) => ({
-            update_id: u.update_id,
-            chat_id: u.message?.chat?.id ?? u.callback_query?.message?.chat?.id,
-            from: u.message?.from?.username,
-            text: u.message?.text,
-          })),
+          output: recentUpdatesView(db, {
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            chat_id: chat != null && Number.isInteger(chat) ? chat : undefined,
+          }),
+        };
+      }
+      case 'messages_list': {
+        const db = requireDb(ctx);
+        const chat = numericChatFilter(args.chat_id);
+        return {
+          output: messagesList(db, {
+            chat_id: chat != null && Number.isInteger(chat) ? chat : undefined,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            order: args.order === 'asc' ? 'asc' : args.order === 'desc' ? 'desc' : undefined,
+          }),
+        };
+      }
+      case 'messages_since': {
+        const db = requireDb(ctx);
+        const chat = numericChatFilter(args.chat_id);
+        return {
+          output: messagesSince(db, {
+            since_ts: typeof args.since_ts === 'number' ? args.since_ts : undefined,
+            since_update_id: typeof args.since_update_id === 'number' ? args.since_update_id : undefined,
+            chat_id: chat != null && Number.isInteger(chat) ? chat : undefined,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            order: args.order === 'asc' ? 'asc' : args.order === 'desc' ? 'desc' : undefined,
+          }),
+        };
+      }
+      case 'messages_search': {
+        const db = requireDb(ctx);
+        const chat = numericChatFilter(args.chat_id);
+        return {
+          output: messagesSearch(db, {
+            query: String(args.query ?? ''),
+            chat_id: chat != null && Number.isInteger(chat) ? chat : undefined,
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            order: args.order === 'asc' ? 'asc' : args.order === 'desc' ? 'desc' : undefined,
+          }),
+        };
+      }
+      case 'chats_list': {
+        const db = requireDb(ctx);
+        return {
+          output: chatsList(db, {
+            limit: typeof args.limit === 'number' ? args.limit : undefined,
+            order: args.order === 'asc' ? 'asc' : args.order === 'desc' ? 'desc' : undefined,
+          }),
         };
       }
       default:
@@ -213,8 +377,14 @@ const adapter: ChinvatAdapter = {
     });
 
     pollAbort?.abort();
-    pollAbort = new AbortController();
-    void pollLoop(ctx);
+    const controller = new AbortController();
+    pollAbort = controller;
+    if (ctx.signal?.aborted) {
+      controller.abort();
+    } else {
+      ctx.signal?.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+    void pollLoop(ctx, controller.signal);
   },
 };
 

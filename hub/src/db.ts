@@ -45,6 +45,48 @@ export function openDb(dataDir: string): DB {
       decided_via TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_approvals_open ON approvals(decision) WHERE decision IS NULL;
+
+    CREATE TABLE IF NOT EXISTS telegram_updates (
+      update_id INTEGER PRIMARY KEY,
+      update_type TEXT NOT NULL,
+      chat_id INTEGER,
+      chat_type TEXT,
+      chat_title TEXT,
+      chat_username TEXT,
+      message_id INTEGER,
+      message_date INTEGER,
+      sender_id INTEGER,
+      sender_username TEXT,
+      sender_display_name TEXT,
+      text TEXT,
+      reply_to_message_id INTEGER,
+      thread_id INTEGER,
+      edited INTEGER NOT NULL DEFAULT 0,
+      ingested_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_telegram_updates_chat ON telegram_updates(chat_id, message_date);
+    CREATE INDEX IF NOT EXISTS idx_telegram_updates_date ON telegram_updates(message_date);
+
+    CREATE TABLE IF NOT EXISTS telegram_chats (
+      chat_id INTEGER PRIMARY KEY,
+      type TEXT,
+      title TEXT,
+      username TEXT,
+      first_seen INTEGER NOT NULL,
+      last_seen INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS telegram_chat_migrations (
+      old_chat_id INTEGER PRIMARY KEY,
+      new_chat_id INTEGER NOT NULL,
+      migrated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS telegram_offset (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      next_offset INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER
+    );
   `);
   return db;
 }
